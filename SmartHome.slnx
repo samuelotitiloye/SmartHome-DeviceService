@@ -1,6 +1,0 @@
-<Solution>
-  <Project Path="DeviceService.Api/DeviceService.Api.csproj" />
-  <Project Path="DeviceService.Application/DeviceService.Application.csproj" />
-  <Project Path="DeviceService.Domain/DeviceService.Domain.csproj" />
-  <Project Path="DeviceService.Infrastructure/DeviceService.Infrastructure.csproj" />
-</Solution>
