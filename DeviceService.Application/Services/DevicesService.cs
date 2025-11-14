@@ -26,5 +26,4 @@ namespace DeviceService.Application.Services
             return device;
         }
     }
-    
 }

@@ -19,7 +19,6 @@ namespace DeviceService.Domain.Entities
             Location = location;
             ThresholdWatts = thresholdWatts;
             RegisteredAt = DateTime.UtcNow;
-        
         }
     }
 }
