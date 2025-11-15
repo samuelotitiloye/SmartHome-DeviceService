@@ -1,10 +1,14 @@
+
 namespace DeviceService.Application.Dto
 {
     /// <summary>
-    /// Device registration request payload.
+    /// Device response payload returned by the API.
     /// </summary>
-    public class RegisterDeviceDto
+    public class DeviceResponseDto
     {
+        /// <summary>Unique identifier for the device.</summary>
+        public Guid Id { get; set; }
+
         /// <summary>Human-friendly name of the device.</summary>
         public string DeviceName { get; set; }
 
@@ -19,5 +23,8 @@ namespace DeviceService.Application.Dto
 
         /// <summary>Manufacturer serial number.</summary>
         public string SerialNumber { get; set; }
+
+        /// <summary>When the device was registered in the system (UTC).</summary>
+        public DateTime RegisteredAt { get; set; }
     }
 }
