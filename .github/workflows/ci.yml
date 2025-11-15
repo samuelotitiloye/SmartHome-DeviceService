@@ -9,6 +9,10 @@ jobs:
   build_and_test:
     runs-on: ubuntu-latest
 
+    defaults:
+      run:
+        working-directory: ./  # Ensure runner is at repo root
+
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -19,10 +23,10 @@ jobs:
           dotnet-version: '8.0.x'
 
       - name: Restore dependencies
-        run: dotnet restore SmartHome-DeviceService.sln
+        run: dotnet restore SmartHome.sln
 
       - name: Build solution
-        run: dotnet build SmartHome-DeviceService.sln --configuration Release --no-restore
+        run: dotnet build SmartHome.sln --configuration Release --no-restore
 
       - name: Run tests
-        run: dotnet test SmartHome-DeviceService.sln --no-build --verbosity normal
+        run: dotnet test SmartHome.sln --no-build --verbosity normal
