@@ -50,12 +50,14 @@ jobs:
       # -----------------------------
       # Run unit tests with coverage
       # -----------------------------
-      - name: Run Tests With Coverage
-        run: dotnet test DeviceService.Tests/DeviceService.Tests.csproj \
-              --configuration Release \
-              --no-build \
-              --collect:"XPlat Code Coverage" \
-              --results-directory TestResults
+      - name: Run Tests with Coverage
+        run: |
+          dotnet test DeviceService.Tests/DeviceService.Tests.csproj \
+          --configuration Release \
+          --no-build \
+          --collect:"XPlat Code Coverage" \
+          --results-directory TestResults
+
 
       # -----------------------------
       # Upload coverage report
