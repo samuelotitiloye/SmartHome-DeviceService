@@ -50,8 +50,12 @@ jobs:
       # -----------------------------
       # Run unit tests with coverage
       # -----------------------------
-      - name: Run Tests
-        run: dotnet test DeviceService.Tests/DeviceService.Tests.csproj --configuration Debug --verbosity normal
+      - name: Run Tests With Coverage
+        run: dotnet test DeviceService.Tests/DeviceService.Tests.csproj \
+              --configuration Release \
+              --no-build \
+              --collect:"XPlat Code Coverage" \
+              --results-directory TestResults
 
       # -----------------------------
       # Upload coverage report
@@ -60,7 +64,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: coverage-report
-          path: TestResults/coverage/
+          path: TestResults
 
       # -----------------------------
       # Upload test results (trx)

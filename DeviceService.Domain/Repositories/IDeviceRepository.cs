@@ -4,8 +4,10 @@ namespace DeviceService.Domain.Repositories
 {
     public interface IDeviceRepository
     {
-        Task AddAsync(Device device);
+        Task<Device> AddAsync(Device device);
         Task<Device?> GetByIdAsync(Guid id);
-        Task<IEnumerable<Device>> GetAllAsync();
+        Task<IReadOnlyList<Device>> GetAllAsync();
+        Task<Device?> UpdateAsync(Device device);
+        Task<bool> DeleteAsync(Guid id);
     }
 }

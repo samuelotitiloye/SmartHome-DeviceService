@@ -4,9 +4,15 @@
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+
+        <!-- Enable XML documentation generation -->
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
+
+    <!-- Avoid warnings for missing XML docs -->
     <NoWarn>$(NoWarn);1591</NoWarn>
   </PropertyGroup>
+
+  
 
   <ItemGroup>
     <ProjectReference Include="..\DeviceService.Application\DeviceService.Application.csproj" />
@@ -15,7 +21,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Swashbuckle.AspNetCore" Version="6.5.0" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.0" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
+    <PackageReference Include="MediatR" Version="12.2.0" />
   </ItemGroup>
 
 </Project>

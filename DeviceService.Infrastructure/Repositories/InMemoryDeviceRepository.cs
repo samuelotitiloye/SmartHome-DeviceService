@@ -5,23 +5,48 @@ namespace DeviceService.Infrastructure.Repositories
 {
     public class InMemoryDeviceRepository : IDeviceRepository
     {
-        private readonly Dictionary<Guid, Device> _store = new();
+        private readonly List<Device> _devices = new();
 
-        public Task AddAsync(Device device)
+        public Task<Device> AddAsync(Device device)
         {
-            _store[device.Id] = device;
-            return Task.CompletedTask;
+            if (device.Id == Guid.Empty)
+                device.Id = Guid.NewGuid();
+
+            if (device.RegisteredAt == default)
+                device.RegisteredAt = DateTime.UtcNow;
+
+            _devices.Add(device);
+            return Task.FromResult(device);
         }
 
         public Task<Device?> GetByIdAsync(Guid id)
         {
-            _store.TryGetValue(id, out var device);
-            return Task.FromResult(device);
+            return Task.FromResult(_devices.FirstOrDefault(d => d.Id == id));
         }
 
-        public Task<IEnumerable<Device>> GetAllAsync()
+        public Task<IReadOnlyList<Device>> GetAllAsync()
         {
-            return Task.FromResult(_store.Values.AsEnumerable());
+            return Task.FromResult((IReadOnlyList<Device>)_devices.ToList());
+        }
+
+        public Task<Device?> UpdateAsync(Device device)
+        {
+            var index = _devices.FindIndex(x => x.Id == device.Id);
+            if (index < 0)
+                return Task.FromResult<Device?>(null);
+
+            _devices[index] = device;
+            return Task.FromResult<Device?>(device);
+        }
+
+        public Task<bool> DeleteAsync(Guid id)
+        {
+            var existing = _devices.FirstOrDefault(x => x.Id == id);
+            if (existing is null)
+                return Task.FromResult(false);
+
+            _devices.Remove(existing);
+            return Task.FromResult(true);
         }
     }
 }

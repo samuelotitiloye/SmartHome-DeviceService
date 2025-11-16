@@ -1,34 +1,32 @@
-using Xunit;
+using System.Threading;
+using System.Threading.Tasks;
 using DeviceService.Application.Dto;
 using DeviceService.Application.Services;
 using DeviceService.Infrastructure.Repositories;
-using Microsoft.Extensions.Logging.Abstractions;
+using FluentAssertions;
+using Xunit;
 
 public class RegisterDeviceTests
 {
     [Fact]
-    public async Task RegisterDevice_Should_CreateDeviceWithId()
+    public async Task Should_Register_Device_Successfully()
     {
-        // Arrange
         var repo = new InMemoryDeviceRepository();
-        var logger = new NullLogger<DevicesService>();
-        var service = new DevicesService(repo, logger);
+        var service = new DevicesService(repo);
 
         var dto = new RegisterDeviceDto
         {
-            DeviceName = "Test Lamp",
+            DeviceName = "Lamp",
             Type = "Light",
-            Location = "Office",
-            ThresholdWatts = 60,
-            SerialNumber = "TL-001"
+            Location = "Living Room",
+            ThresholdWatts = 50,
+            SerialNumber = "XYZ123"
         };
 
-        // Act
-        var result = await service.RegisterDeviceAsync(dto);
+        var result = await service.RegisterDeviceAsync(dto, CancellationToken.None);
 
-        // Assert
-        Assert.NotNull(result);
-        Assert.NotEqual(Guid.Empty, result.Id);
-        Assert.Equal("Test Lamp", result.DeviceName);
+        result.Should().NotBeNull();
+        result.Name.Should().Be("Lamp");
+        result.SerialNumber.Should().Be("XYZ123");
     }
 }

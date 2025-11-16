@@ -1,6 +1,6 @@
-namespace DeviceService.Domain.Entities
+namespace DeviceService.Application.Dto
 {
-    public class Device
+    public class DeviceDto
     {
         public Guid Id { get; set; }
         public string Name { get; set; } = default!;
