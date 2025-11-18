@@ -11,22 +11,25 @@ public class RegisterDeviceTests
     [Fact]
     public async Task Should_Register_Device_Successfully()
     {
+        // Arrange
         var repo = new InMemoryDeviceRepository();
         var service = new DevicesService(repo);
 
-        var dto = new RegisterDeviceDto
-        {
-            DeviceName = "Lamp",
-            Type = "Light",
-            Location = "Living Room",
-            ThresholdWatts = 50,
-            SerialNumber = "XYZ123"
-        };
+        var dto = new RegisterDeviceDto(
+            "Device A",
+            "SmartPlug",
+            "Living Room",
+            true,
+            120,
+            "SN12345"
+        );
 
+        // Act
         var result = await service.RegisterDeviceAsync(dto, CancellationToken.None);
 
+        // Assert
         result.Should().NotBeNull();
-        result.Name.Should().Be("Lamp");
-        result.SerialNumber.Should().Be("XYZ123");
+        result!.Name.Should().Be("Device A");
+        result.SerialNumber.Should().Be("SN12345");
     }
 }

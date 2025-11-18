@@ -1,3 +1,7 @@
+using DeviceService.Application.Interfaces;
+using DeviceService.Infrastructure.Repositories;
+using DeviceService.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -5,8 +9,7 @@ using System.Text;
 using DeviceService.Api.Auth;
 using DeviceService.Application.Devices.Commands.UpdateDevice;
 using DeviceService.Application.Services;
-using DeviceService.Domain.Repositories;
-using DeviceService.Infrastructure.Repositories;
+using Npgsql.EntityFrameworkCore.PostgreSQL;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -14,7 +17,6 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 
 builder.Services.AddScoped<DevicesService>();
-builder.Services.AddSingleton<IDeviceRepository, InMemoryDeviceRepository>();
 builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(UpdateDeviceCommand).Assembly));
 
 // Load JWT options from configuration
@@ -22,7 +24,9 @@ builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("Jwt"));
 builder.Services.AddSingleton<JwtTokenService>();
 
 
-
+// ==================================
+//   JWT CONFIGURATION
+// ==================================
 // Add JWT Authentication
 var jwtSection = builder.Configuration.GetSection("Jwt");
 var secretKey = jwtSection.GetValue<string>("Secret") 
@@ -49,6 +53,9 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         };
     });
 
+// ==================================
+//   SWAGGER CONFIGURATION
+// ==================================
 // Swagger
 builder.Services.AddSwaggerGen(c =>
 {
@@ -88,6 +95,28 @@ builder.Services.AddSwaggerGen(c =>
         }
     });
 });
+
+
+// ======================================
+//   DATABASE INTEGRATION CONFIGURATION
+// ======================================
+// PostgreSQL connection
+builder.Services.AddDbContext<DeviceDbContext>(options =>
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"))
+);
+
+// Repository 
+builder.Services.AddScoped<IDeviceRepository, DeviceRepository>();
+
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
+    ?? throw new Exception("Database connection string 'DefaultConnection' is missing.");
+
+Console.WriteLine("DB CONNECTION STRING DEBUG:" + connectionString);
+
+builder.Services.AddDbContext<DeviceDbContext>(options =>
+    options.UseNpgsql(connectionString));
+
+
 
 var app = builder.Build();
 

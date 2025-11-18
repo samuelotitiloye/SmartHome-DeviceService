@@ -1,31 +1,46 @@
-using MediatR;
-using DeviceService.Domain.Repositories;
+using DeviceService.Application.Interfaces;
 using DeviceService.Application.Dto;
-using DeviceService.Application.Mappings;
+using MediatR;
 
 namespace DeviceService.Application.Devices.Commands.UpdateDevice
 {
     public class UpdateDeviceCommandHandler 
         : IRequestHandler<UpdateDeviceCommand, DeviceDto?>
     {
-        private readonly IDeviceRepository _repo;
+        private readonly IDeviceRepository _repository;
 
-        public UpdateDeviceCommandHandler(IDeviceRepository repo)
+        public UpdateDeviceCommandHandler(IDeviceRepository repository)
         {
-            _repo = repo;
+            _repository = repository;
         }
 
-        public async Task<DeviceDto?> Handle(UpdateDeviceCommand request, CancellationToken cancellationToken)
+        public async Task<DeviceDto?> Handle(
+            UpdateDeviceCommand request,
+            CancellationToken cancellationToken)
         {
-            var existing = await _repo.GetByIdAsync(request.Id);
-            if (existing is null)
+            var existing = await _repository.GetByIdAsync(request.Id);
+            if (existing == null)
                 return null;
 
-            existing.ApplyUpdate(request);
+            existing.Name = request.Name;
+            existing.Type = request.Type;
+            existing.Location = request.Location;
+            existing.IsOnline = request.IsOnline;
+            existing.ThresholdWatts = request.ThresholdWatts;
+            existing.SerialNumber = request.SerialNumber;
 
-            var updated = await _repo.UpdateAsync(existing);
+            await _repository.UpdateAsync(existing);
 
-            return updated?.ToDto();
+            return new DeviceDto(
+                existing.Id,
+                existing.Name,
+                existing.Type,
+                existing.Location,
+                existing.IsOnline,
+                existing.ThresholdWatts,
+                existing.SerialNumber,
+                existing.RegisteredAt
+            );
         }
     }
 }

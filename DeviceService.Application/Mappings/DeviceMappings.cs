@@ -1,49 +1,51 @@
-using DeviceService.Domain.Entities;
 using DeviceService.Application.Dto;
-using DeviceService.Application.Devices.Commands.UpdateDevice;
+using DeviceService.Domain.Entities;
 
 namespace DeviceService.Application.Mappings
 {
     public static class DeviceMappings
     {
-        public static DeviceDto ToDto(this Device d)
+        public static DeviceDto ToDto(this Device device)
         {
-            return new DeviceDto
+            return new DeviceDto(
+                device.Id,
+                device.Name,
+                device.Type,
+                device.Location,
+                device.IsOnline,
+                device.ThresholdWatts,
+                device.SerialNumber,
+                device.RegisteredAt
+            );
+        }
+
+        public static Device ToEntity(this DeviceDto dto)
+        {
+            return new Device
             {
-                Id = d.Id,
-                Name = d.Name,
-                Type = d.Type,
-                Location = d.Location,
-                IsOnline = d.IsOnline,
-                ThresholdWatts = d.ThresholdWatts,
-                SerialNumber = d.SerialNumber,
-                RegisteredAt = d.RegisteredAt
+                Id = dto.Id,
+                Name = dto.Name,
+                Type = dto.Type,
+                Location = dto.Location,
+                IsOnline = dto.IsOnline,
+                ThresholdWatts = dto.ThresholdWatts,
+                SerialNumber = dto.SerialNumber
             };
         }
 
+        // RegisterDeviceDto → Device
         public static Device ToEntity(this RegisterDeviceDto dto)
         {
             return new Device
             {
                 Id = Guid.NewGuid(),
-                Name = dto.DeviceName,
+                Name = dto.Name,
                 Type = dto.Type,
                 Location = dto.Location,
-                IsOnline = true,
+                IsOnline = dto.IsOnline,
                 ThresholdWatts = dto.ThresholdWatts,
-                SerialNumber = dto.SerialNumber,
-                RegisteredAt = DateTime.UtcNow
+                SerialNumber = dto.SerialNumber
             };
-        }
-
-        public static void ApplyUpdate(this Device d, UpdateDeviceCommand cmd)
-        {
-            d.Name = cmd.Name;
-            d.Type = cmd.Type;
-            d.Location = cmd.Location;
-            d.IsOnline = cmd.IsOnline;
-            d.ThresholdWatts = cmd.ThresholdWatts;
-            d.SerialNumber = cmd.SerialNumber;
         }
     }
 }

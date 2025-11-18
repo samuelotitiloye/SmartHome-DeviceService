@@ -1,4 +1,4 @@
-using DeviceService.Domain.Repositories;
+using DeviceService.Application.Interfaces;
 using MediatR;
 
 namespace DeviceService.Application.Devices.Commands.DeleteDevice
@@ -12,9 +12,14 @@ namespace DeviceService.Application.Devices.Commands.DeleteDevice
             _repo = repo;
         }
 
-        public async Task<bool> Handle(DeleteDeviceCommand cmd, CancellationToken ct)
+        public async Task<bool> Handle(DeleteDeviceCommand request, CancellationToken cancellationToken)
         {
-            return await _repo.DeleteAsync(cmd.Id);
+            var existing = await _repo.GetByIdAsync(request.Id);
+            if (existing == null)
+                return false;
+
+            await _repo.DeleteAsync(request.Id);
+            return true;
         }
     }
 }

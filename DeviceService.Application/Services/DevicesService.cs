@@ -1,6 +1,6 @@
 using DeviceService.Application.Dto;
 using DeviceService.Application.Mappings;
-using DeviceService.Domain.Repositories;
+using DeviceService.Application.Interfaces;
 
 namespace DeviceService.Application.Services
 {
