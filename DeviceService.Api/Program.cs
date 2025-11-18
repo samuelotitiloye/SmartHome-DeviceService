@@ -100,22 +100,31 @@ builder.Services.AddSwaggerGen(c =>
 // ======================================
 //   DATABASE INTEGRATION CONFIGURATION
 // ======================================
-// PostgreSQL connection
-builder.Services.AddDbContext<DeviceDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"))
-);
 
-// Repository 
-builder.Services.AddScoped<IDeviceRepository, DeviceRepository>();
+// Load envirenment variables for DB connection
+var dbUser = Environment.GetEnvironmentVariable("DB_USER");
+var dbPassword = Environment.GetEnvironmentVariable("DB_PASSWORD");
 
+// Load Base connection string
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? throw new Exception("Database connection string 'DefaultConnection' is missing.");
+    
+// Inject environment variables into the placeholders   
+connectionString = connectionString 
+    .Replace("${DB_USER}", dbUser)
+    .Replace("${DB_PASSWORD}", dbPassword);
+
+    Console.WriteLine($"DB_USER loaded: {dbUser}");
 
 Console.WriteLine("DB CONNECTION STRING DEBUG:" + connectionString);
 
+// Register DbContext ONCE
 builder.Services.AddDbContext<DeviceDbContext>(options =>
     options.UseNpgsql(connectionString));
 
+
+// Register Repository 
+builder.Services.AddScoped<IDeviceRepository, DeviceRepository>();
 
 
 var app = builder.Build();
