@@ -2,7 +2,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using DeviceService.Application.Devices.Commands.UpdateDevice;
-using DeviceService.Application.Dto;
+using DeviceService.Application.Devices.Dto;
 using DeviceService.Application.Interfaces;
 using DeviceService.Infrastructure.Repositories;
 using FluentAssertions;

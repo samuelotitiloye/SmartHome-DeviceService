@@ -1,6 +1,6 @@
 using System.Threading;
 using System.Threading.Tasks;
-using DeviceService.Application.Dto;
+using DeviceService.Application.Devices.Dto;
 using DeviceService.Application.Services;
 using DeviceService.Infrastructure.Repositories;
 using FluentAssertions;

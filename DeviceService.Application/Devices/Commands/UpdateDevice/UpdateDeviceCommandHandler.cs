@@ -1,5 +1,6 @@
+using DeviceService.Application.Devices.Dto;
 using DeviceService.Application.Interfaces;
-using DeviceService.Application.Dto;
+using DeviceService.Domain.Entities;
 using MediatR;
 
 namespace DeviceService.Application.Devices.Commands.UpdateDevice
@@ -14,14 +15,14 @@ namespace DeviceService.Application.Devices.Commands.UpdateDevice
             _repository = repository;
         }
 
-        public async Task<DeviceDto?> Handle(
-            UpdateDeviceCommand request,
-            CancellationToken cancellationToken)
+        public async Task<DeviceDto?> Handle(UpdateDeviceCommand request, CancellationToken cancellationToken)
         {
+            // Fetch existing device
             var existing = await _repository.GetByIdAsync(request.Id);
             if (existing == null)
                 return null;
 
+            // Apply updates
             existing.Name = request.Name;
             existing.Type = request.Type;
             existing.Location = request.Location;
@@ -29,8 +30,10 @@ namespace DeviceService.Application.Devices.Commands.UpdateDevice
             existing.ThresholdWatts = request.ThresholdWatts;
             existing.SerialNumber = request.SerialNumber;
 
+            // Save changes
             await _repository.UpdateAsync(existing);
 
+            // Return DTO
             return new DeviceDto(
                 existing.Id,
                 existing.Name,

@@ -9,33 +9,41 @@ using System.Text;
 using DeviceService.Api.Auth;
 using DeviceService.Application.Devices.Commands.UpdateDevice;
 using DeviceService.Application.Services;
-using Npgsql.EntityFrameworkCore.PostgreSQL;
+using Serilog;
+using DeviceService.Api.Configuration;
+using CorrelationId;
+using CorrelationId.DependencyInjection;
+
 
 var builder = WebApplication.CreateBuilder(args);
+
+// ==================================
+//   SERILOG 
+// ==================================
+SerilogConfiguration.ConfigureLogging(builder);
+
+// ==================================
+//   SERVICES
+// ==================================
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 
+// ==================================
+//   APP SERVICES
+// ==================================
 builder.Services.AddScoped<DevicesService>();
 builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(UpdateDeviceCommand).Assembly));
-
-// Load JWT options from configuration
-builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("Jwt"));
-builder.Services.AddSingleton<JwtTokenService>();
-
 
 // ==================================
 //   JWT CONFIGURATION
 // ==================================
-// Add JWT Authentication
+builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("Jwt"));
+builder.Services.AddSingleton<JwtTokenService>();
+
 var jwtSection = builder.Configuration.GetSection("Jwt");
 var secretKey = jwtSection.GetValue<string>("Secret") 
     ?? throw new InvalidOperationException("JWT secret is not configured in appsettings.json");
-
-Console.WriteLine("JWT CONFIG DEBUG:");
-Console.WriteLine($"Issuer: {jwtSection.GetValue<string>("Issuer")}");
-Console.WriteLine($"Audience: {jwtSection.GetValue<string>("Audience")}");
-Console.WriteLine($"Secret: {jwtSection.GetValue<string>("Secret")}");    
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -56,7 +64,6 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 // ==================================
 //   SWAGGER CONFIGURATION
 // ==================================
-// Swagger
 builder.Services.AddSwaggerGen(c =>
 {
     var xmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
@@ -96,58 +103,56 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
-
 // ======================================
 //   DATABASE INTEGRATION CONFIGURATION
 // ======================================
-
-// Load envirenment variables for DB connection
 var dbUser = Environment.GetEnvironmentVariable("DB_USER");
 var dbPassword = Environment.GetEnvironmentVariable("DB_PASSWORD");
 
-// Load Base connection string
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? throw new Exception("Database connection string 'DefaultConnection' is missing.");
-    
-// Inject environment variables into the placeholders   
-connectionString = connectionString 
+
+connectionString = connectionString
     .Replace("${DB_USER}", dbUser)
     .Replace("${DB_PASSWORD}", dbPassword);
 
-    Console.WriteLine($"DB_USER loaded: {dbUser}");
-
-Console.WriteLine("DB CONNECTION STRING DEBUG:" + connectionString);
-
-// Register DbContext ONCE
 builder.Services.AddDbContext<DeviceDbContext>(options =>
     options.UseNpgsql(connectionString));
 
-
-// Register Repository 
+// ==================================
+//  REGISTER REPOSITORY
+// ==================================
 builder.Services.AddScoped<IDeviceRepository, DeviceRepository>();
 
+// ==================================
+//   CORRELATION ID
+// ==================================
+builder.Services.AddDefaultCorrelationId(options =>
+{
+    options.AddToLoggingScope = true;
+    options.RequestHeader = "X-Correlation-ID";
+    options.ResponseHeader = "X-Correlation-ID";
+});
 
+// ==================================
+//   BUILD APP
+// ==================================
 var app = builder.Build();
 
 // ==================================
-//   GLOBAL MIDDLEWARE PIPELINE
+//   GLOBAL MIDDLEWARE PIPELINE 
 // ==================================
 
-// Log incoming/outgoing HTTP
-app.UseHttpsRedirection();
+app.UseCorrelationId();                 // Correlation ID
+app.UseSerilogRequestLogging();         // Request Logging
 
-// Swagger
-app.UseSwagger();
-app.UseSwaggerUI(c =>
-{
-    c.SwaggerEndpoint("/swagger/v1/swagger.json", "Device Service API v1");
-});
+app.UseHttpsRedirection();              // HTTPS redirect
+app.UseSwagger();                       // Swagger UI
+app.UseSwaggerUI();
 
-// Authentication and Authorization
-app.UseAuthentication();
-app.UseAuthorization();
+app.UseAuthentication();                // Auth
+app.UseAuthorization();                 // Authorization
 
-// Routing
-app.MapControllers();
+app.MapControllers();                   // Routing
 
 app.Run();

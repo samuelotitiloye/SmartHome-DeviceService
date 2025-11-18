@@ -1,4 +1,4 @@
-namespace DeviceService.Application.Dto
+namespace DeviceService.Application.Devices.Dto
 {
     public record RegisterDeviceDto(
         string Name,

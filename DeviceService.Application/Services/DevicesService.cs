@@ -1,4 +1,4 @@
-using DeviceService.Application.Dto;
+using DeviceService.Application.Devices.Dto;
 using DeviceService.Application.Mappings;
 using DeviceService.Application.Interfaces;
 

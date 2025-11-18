@@ -2,9 +2,10 @@ using Microsoft.AspNetCore.Authorization;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
-using DeviceService.Application.Dto;
+using DeviceService.Application.Devices.Dto;
 using DeviceService.Application.Services;
 using DeviceService.Application.Devices.Commands.UpdateDevice;
+using DeviceService.Application.Devices.Commands.RegisterDevice;
 using DeviceService.Application.Devices.Commands.DeleteDevice;
 
 namespace DeviceService.Api.Controllers
@@ -121,7 +122,6 @@ namespace DeviceService.Api.Controllers
 
             return Ok(result);
         }
-
 
         // -----------------------
         //  DELETE DEVICE
