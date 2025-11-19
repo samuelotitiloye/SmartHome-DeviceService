@@ -11,7 +11,7 @@ namespace DeviceService.Domain.Entities
         public bool IsOnline { get; set; }
         public int ThresholdWatts { get; set; }
         public string SerialNumber { get; set; } = string.Empty;
-        public DateTime RegisteredAt { get; set; }
+        public DateTime RegisteredAt { get; set; } = DateTime.UtcNow;
 
         //EF Core requires this for materialization
         public Device() { }
