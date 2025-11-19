@@ -34,3 +34,14 @@
 2025-11-18 22:28:35.635 -06:00 [INF] Hosting environment: Development
 2025-11-18 22:28:35.635 -06:00 [INF] Content root path: /Users/samuelt/SmartHome-DeviceService/DeviceService.Api
 2025-11-18 22:32:50.915 -06:00 [INF] Application is shutting down...
+2025-11-18 22:34:43.142 -06:00 [INF] Now listening on: http://localhost:5194
+2025-11-18 22:34:43.165 -06:00 [INF] Application started. Press Ctrl+C to shut down.
+2025-11-18 22:34:43.165 -06:00 [INF] Hosting environment: Development
+2025-11-18 22:34:43.165 -06:00 [INF] Content root path: /Users/samuelt/SmartHome-DeviceService/DeviceService.Api
+2025-11-18 22:34:49.746 -06:00 [INF] No correlation ID was found in the request headers
+2025-11-18 22:34:49.749 -06:00 [WRN] Failed to determine the https port for redirect.
+2025-11-18 22:34:49.973 -06:00 [INF] No correlation ID was found in the request headers
+2025-11-18 22:34:49.984 -06:00 [INF] No correlation ID was found in the request headers
+2025-11-18 22:36:23.117 -06:00 [INF] No correlation ID was found in the request headers
+2025-11-18 22:36:46.877 -06:00 [INF] No correlation ID was found in the request headers
+2025-11-18 22:44:42.174 -06:00 [INF] Application is shutting down...
