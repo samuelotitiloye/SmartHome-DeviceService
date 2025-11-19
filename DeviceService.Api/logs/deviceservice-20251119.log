@@ -1,0 +1,58 @@
+2025-11-19 11:00:55.115 -06:00 [INF] Now listening on: http://localhost:5194
+2025-11-19 11:00:55.140 -06:00 [INF] Application started. Press Ctrl+C to shut down.
+2025-11-19 11:00:55.140 -06:00 [INF] Hosting environment: Development
+2025-11-19 11:00:55.140 -06:00 [INF] Content root path: /Users/samuelt/SmartHome-DeviceService/DeviceService.Api
+2025-11-19 11:04:09.393 -06:00 [INF] No correlation ID was found in the request headers
+2025-11-19 11:04:09.396 -06:00 [WRN] Failed to determine the https port for redirect.
+2025-11-19 11:04:09.438 -06:00 [ERR] An unhandled exception has occurred while executing the request.
+System.InvalidOperationException: Unable to resolve service for type 'System.String' while attempting to activate 'DeviceService.Infrastructure.Health.DbHealthCheck'.
+   at Microsoft.Extensions.DependencyInjection.ActivatorUtilities.ConstructorMatcher.CreateInstance(IServiceProvider provider)
+   at Microsoft.Extensions.DependencyInjection.ActivatorUtilities.CreateInstance(IServiceProvider provider, Type instanceType, Object[] parameters)
+   at Microsoft.Extensions.DependencyInjection.ActivatorUtilities.GetServiceOrCreateInstance(IServiceProvider provider, Type type)
+   at Microsoft.Extensions.DependencyInjection.ActivatorUtilities.GetServiceOrCreateInstance[T](IServiceProvider provider)
+   at Microsoft.Extensions.DependencyInjection.HealthChecksBuilderAddCheckExtensions.<AddCheck>g__GetServiceOrCreateInstance|3_0[T](IServiceProvider serviceProvider)
+   at Microsoft.Extensions.Diagnostics.HealthChecks.DefaultHealthCheckService.RunCheckAsync(HealthCheckRegistration registration, CancellationToken cancellationToken)
+   at Microsoft.Extensions.Diagnostics.HealthChecks.DefaultHealthCheckService.RunCheckAsync(HealthCheckRegistration registration, CancellationToken cancellationToken)
+   at Microsoft.Extensions.Diagnostics.HealthChecks.DefaultHealthCheckService.CheckHealthAsync(Func`2 predicate, CancellationToken cancellationToken)
+   at Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckMiddleware.InvokeAsync(HttpContext httpContext)
+   at Microsoft.AspNetCore.Authorization.AuthorizationMiddleware.Invoke(HttpContext context)
+   at Microsoft.AspNetCore.Authentication.AuthenticationMiddleware.Invoke(HttpContext context)
+   at Swashbuckle.AspNetCore.SwaggerUI.SwaggerUIMiddleware.Invoke(HttpContext httpContext)
+   at Swashbuckle.AspNetCore.Swagger.SwaggerMiddleware.Invoke(HttpContext httpContext, ISwaggerProvider swaggerProvider)
+   at Serilog.AspNetCore.RequestLoggingMiddleware.Invoke(HttpContext httpContext)
+   at CorrelationId.CorrelationIdMiddleware.Invoke(HttpContext context, ICorrelationContextFactory correlationContextFactory)
+   at Microsoft.AspNetCore.Diagnostics.DeveloperExceptionPageMiddlewareImpl.Invoke(HttpContext context)
+2025-11-19 11:04:29.265 -06:00 [INF] No correlation ID was found in the request headers
+2025-11-19 11:04:29.270 -06:00 [ERR] An unhandled exception has occurred while executing the request.
+System.InvalidOperationException: Unable to resolve service for type 'System.String' while attempting to activate 'DeviceService.Infrastructure.Health.DbHealthCheck'.
+   at Microsoft.Extensions.DependencyInjection.ActivatorUtilities.ConstructorMatcher.CreateInstance(IServiceProvider provider)
+   at Microsoft.Extensions.DependencyInjection.ActivatorUtilities.CreateInstance(IServiceProvider provider, Type instanceType, Object[] parameters)
+   at Microsoft.Extensions.DependencyInjection.ActivatorUtilities.GetServiceOrCreateInstance(IServiceProvider provider, Type type)
+   at Microsoft.Extensions.DependencyInjection.ActivatorUtilities.GetServiceOrCreateInstance[T](IServiceProvider provider)
+   at Microsoft.Extensions.DependencyInjection.HealthChecksBuilderAddCheckExtensions.<AddCheck>g__GetServiceOrCreateInstance|3_0[T](IServiceProvider serviceProvider)
+   at Microsoft.Extensions.Diagnostics.HealthChecks.DefaultHealthCheckService.RunCheckAsync(HealthCheckRegistration registration, CancellationToken cancellationToken)
+   at Microsoft.Extensions.Diagnostics.HealthChecks.DefaultHealthCheckService.RunCheckAsync(HealthCheckRegistration registration, CancellationToken cancellationToken)
+   at Microsoft.Extensions.Diagnostics.HealthChecks.DefaultHealthCheckService.CheckHealthAsync(Func`2 predicate, CancellationToken cancellationToken)
+   at Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckMiddleware.InvokeAsync(HttpContext httpContext)
+   at Microsoft.AspNetCore.Authorization.AuthorizationMiddleware.Invoke(HttpContext context)
+   at Microsoft.AspNetCore.Authentication.AuthenticationMiddleware.Invoke(HttpContext context)
+   at Swashbuckle.AspNetCore.SwaggerUI.SwaggerUIMiddleware.Invoke(HttpContext httpContext)
+   at Swashbuckle.AspNetCore.Swagger.SwaggerMiddleware.Invoke(HttpContext httpContext, ISwaggerProvider swaggerProvider)
+   at Serilog.AspNetCore.RequestLoggingMiddleware.Invoke(HttpContext httpContext)
+   at CorrelationId.CorrelationIdMiddleware.Invoke(HttpContext context, ICorrelationContextFactory correlationContextFactory)
+   at Microsoft.AspNetCore.Diagnostics.DeveloperExceptionPageMiddlewareImpl.Invoke(HttpContext context)
+2025-11-19 11:08:26.296 -06:00 [INF] Application is shutting down...
+2025-11-19 11:08:36.842 -06:00 [INF] Now listening on: http://localhost:5194
+2025-11-19 11:08:36.864 -06:00 [INF] Application started. Press Ctrl+C to shut down.
+2025-11-19 11:08:36.864 -06:00 [INF] Hosting environment: Development
+2025-11-19 11:08:36.864 -06:00 [INF] Content root path: /Users/samuelt/SmartHome-DeviceService/DeviceService.Api
+2025-11-19 11:08:40.894 -06:00 [INF] No correlation ID was found in the request headers
+2025-11-19 11:08:40.896 -06:00 [WRN] Failed to determine the https port for redirect.
+2025-11-19 11:08:48.817 -06:00 [INF] No correlation ID was found in the request headers
+2025-11-19 11:09:05.106 -06:00 [INF] No correlation ID was found in the request headers
+2025-11-19 11:09:14.436 -06:00 [INF] No correlation ID was found in the request headers
+2025-11-19 11:09:26.670 -06:00 [INF] No correlation ID was found in the request headers
+2025-11-19 11:09:26.697 -06:00 [INF] No correlation ID was found in the request headers
+2025-11-19 11:10:20.856 -06:00 [INF] No correlation ID was found in the request headers
+2025-11-19 11:10:21.065 -06:00 [INF] No correlation ID was found in the request headers
+2025-11-19 11:10:50.560 -06:00 [INF] Application is shutting down...

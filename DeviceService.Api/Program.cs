@@ -1,3 +1,6 @@
+using DeviceService.Infrastructure.Health;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Diagnostics.HealthChecks;   
 using DeviceService.Application.Interfaces;
 using DeviceService.Infrastructure.Repositories;
 using DeviceService.Infrastructure.Persistence;
@@ -13,7 +16,7 @@ using Serilog;
 using DeviceService.Api.Configuration;
 using CorrelationId;
 using CorrelationId.DependencyInjection;
-
+using System.Text.Json;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -120,6 +123,13 @@ builder.Services.AddDbContext<DeviceDbContext>(options =>
     options.UseNpgsql(connectionString));
 
 // ==================================
+//  HEALTH CHECKS
+// ==================================
+builder.Services.AddHealthChecks()
+    .AddCheck("self", () => HealthCheckResult.Healthy())
+    .AddCheck("database", new DbHealthCheck(connectionString), tags: new[] { "ready" });
+
+// ==================================
 //  REGISTER REPOSITORY
 // ==================================
 builder.Services.AddScoped<IDeviceRepository, DeviceRepository>();
@@ -153,6 +163,40 @@ app.UseSwaggerUI();
 app.UseAuthentication();                // Auth
 app.UseAuthorization();                 // Authorization
 
+// ==================================
+//   HEALTH ENDPOINTS
+// ==================================
+app.MapHealthChecks("/health"); //basic health - always returns healthy: for uptime monitors(loadbalancer in cloud)
+app.MapHealthChecks("/health/live", new HealthCheckOptions // checks app is running
+{
+    Predicate = _ => false // only self
+});
+
+app.MapHealthChecks("health/ready", new HealthCheckOptions // checks db availability. returns structured JSON
+{
+    Predicate = check => check.Tags.Contains("ready"),
+    ResponseWriter = async (context, report) =>
+    {
+        context.Response.ContentType = "application/json";
+
+        var result = JsonSerializer.Serialize(new
+        {
+            status = report.Status.ToString(),
+            checks = report.Entries.Select(e => new {
+                name = e.Key,
+                status = e.Value.Status.ToString(),
+                exception = e.Value.Exception?.Message,
+                duration = e.Value.Duration.ToString()
+            })
+        });
+        await context.Response.WriteAsync(result);
+    }
+});
+
+
+// ==================================
+//   ROUTING
+// ==================================
 app.MapControllers();                   // Routing
 
 app.Run();
