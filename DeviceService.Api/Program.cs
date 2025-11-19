@@ -17,6 +17,7 @@ using DeviceService.Api.Configuration;
 using CorrelationId;
 using CorrelationId.DependencyInjection;
 using System.Text.Json;
+using DeviceService.Api.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -154,6 +155,8 @@ var app = builder.Build();
 // ==================================
 
 app.UseCorrelationId();                 // Correlation ID
+
+app.UseCustomRequestLogging();          // custom request logging(middleware)
 app.UseSerilogRequestLogging();         // Request Logging
 
 app.UseHttpsRedirection();              // HTTPS redirect
