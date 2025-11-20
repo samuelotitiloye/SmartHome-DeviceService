@@ -2,3 +2,12 @@ bin/
 obj/
 .vs/
 .env
+
+# Secret / sensitive files
+replacements.txt
+*.secret
+*.secrets
+*.env.*
+*.key
+*.pem
+*.p12
