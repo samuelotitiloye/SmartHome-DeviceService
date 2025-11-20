@@ -1,17 +1,18 @@
-name: ci
+name: CI Pipeline
 
 on:
-  pull_request:
   push:
     branches: [ main ]
+  pull_request:
 
 jobs:
-  build:
+  build_and_test:
+    name: Build & Test
     runs-on: ubuntu-latest
 
     steps:
       # -----------------------------
-      # Checkout repo
+      # Checkout repository
       # -----------------------------
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -28,7 +29,7 @@ jobs:
             ${{ runner.os }}-nuget-
 
       # -----------------------------
-      # Install .NET SDK
+      # Install .NET SDK 8
       # -----------------------------
       - name: Set up .NET SDK
         uses: actions/setup-dotnet@v4
@@ -42,22 +43,21 @@ jobs:
         run: dotnet restore SmartHome.sln
 
       # -----------------------------
-      # Build (fail fast)
+      # Build
       # -----------------------------
       - name: Build
         run: dotnet build SmartHome.sln --configuration Release --no-restore
 
       # -----------------------------
-      # Run unit tests with coverage
+      # Run Unit Tests + Coverage
       # -----------------------------
       - name: Run Tests with Coverage
         run: |
           dotnet test DeviceService.Tests/DeviceService.Tests.csproj \
-          --configuration Release \
-          --no-build \
-          --collect:"XPlat Code Coverage" \
-          --results-directory TestResults
-
+            --configuration Release \
+            --no-build \
+            --collect:"XPlat Code Coverage" \
+            --results-directory TestResults
 
       # -----------------------------
       # Upload coverage report
@@ -69,7 +69,7 @@ jobs:
           path: TestResults
 
       # -----------------------------
-      # Upload test results (trx)
+      # Upload TRX test results
       # -----------------------------
       - name: Upload Test Results
         uses: actions/upload-artifact@v4
