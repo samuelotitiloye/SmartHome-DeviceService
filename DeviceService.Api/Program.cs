@@ -19,29 +19,59 @@ using CorrelationId.DependencyInjection;
 using System.Text.Json;
 using DeviceService.Api.Middleware;
 
+// OpenTelemetry
+using OpenTelemetry;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
+using OpenTelemetry.Extensions.Hosting;
+
+// Prometheus.NET
+using Prometheus;
+
+
 var builder = WebApplication.CreateBuilder(args);
 
-// ==================================
+// =======================================================
+//  OpenTelemetry: Resource + Metrics + Traces
+// =======================================================
+builder.Services.AddOpenTelemetry()
+    .ConfigureResource(r =>
+        r.AddService("SmartHome-DeviceService"))
+    .WithMetrics(m =>
+    {
+        m.AddAspNetCoreInstrumentation();
+        m.AddHttpClientInstrumentation();
+        m.AddRuntimeInstrumentation();
+        // NOTE: DO NOT call AddPrometheusExporter() here.
+        // We are using prometheus-net instead of OTEL's exporter.
+    })
+    .WithTracing(t =>
+    {
+        t.AddAspNetCoreInstrumentation(o => o.RecordException = true);
+        t.AddHttpClientInstrumentation();
+        t.AddSqlClientInstrumentation();
+        t.AddOtlpExporter();
+    });
+
+// =======================================================
 //   SERILOG 
-// ==================================
+// =======================================================
 SerilogConfiguration.ConfigureLogging(builder);
 
-// ==================================
+// =======================================================
 //   SERVICES
-// ==================================
-
+// =======================================================
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 
-// ==================================
-//   APP SERVICES
-// ==================================
+// App Services
 builder.Services.AddScoped<DevicesService>();
 builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(UpdateDeviceCommand).Assembly));
 
-// ==================================
+// =======================================================
 //   JWT CONFIGURATION
-// ==================================
+// =======================================================
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("Jwt"));
 builder.Services.AddSingleton<JwtTokenService>();
 
@@ -65,9 +95,9 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         };
     });
 
-// ==================================
+// =======================================================
 //   SWAGGER CONFIGURATION
-// ==================================
+// =======================================================
 builder.Services.AddSwaggerGen(c =>
 {
     var xmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
@@ -107,11 +137,16 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
-// ======================================
-//   DATABASE INTEGRATION CONFIGURATION
-// ======================================
+// =======================================================
+//   DATABASE CONFIGURATION
+// =======================================================
 var dbUser = Environment.GetEnvironmentVariable("DB_USER");
 var dbPassword = Environment.GetEnvironmentVariable("DB_PASSWORD");
+
+if (string.IsNullOrEmpty(dbUser) || string.IsNullOrEmpty(dbPassword))
+{
+    throw new InvalidOperationException("DB_USER or DB_PASSWORD environment variables are not set.");
+}
 
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? throw new Exception("Database connection string 'DefaultConnection' is missing.");
@@ -123,21 +158,21 @@ connectionString = connectionString
 builder.Services.AddDbContext<DeviceDbContext>(options =>
     options.UseNpgsql(connectionString));
 
-// ==================================
+// =======================================================
 //  HEALTH CHECKS
-// ==================================
+// =======================================================
 builder.Services.AddHealthChecks()
     .AddCheck("self", () => HealthCheckResult.Healthy())
     .AddCheck("database", new DbHealthCheck(connectionString), tags: new[] { "ready" });
 
-// ==================================
-//  REGISTER REPOSITORY
-// ==================================
+// =======================================================
+//  REPOSITORY
+// =======================================================
 builder.Services.AddScoped<IDeviceRepository, DeviceRepository>();
 
-// ==================================
+// =======================================================
 //   CORRELATION ID
-// ==================================
+// =======================================================
 builder.Services.AddDefaultCorrelationId(options =>
 {
     options.AddToLoggingScope = true;
@@ -145,37 +180,58 @@ builder.Services.AddDefaultCorrelationId(options =>
     options.ResponseHeader = "X-Correlation-ID";
 });
 
-// ==================================
+// =======================================================
 //   BUILD APP
-// ==================================
+// =======================================================
 var app = builder.Build();
 
-// ==================================
+// =======================================================
 //   GLOBAL MIDDLEWARE PIPELINE 
-// ==================================
-
-app.UseCorrelationId();                 // Correlation ID
-
-app.UseCustomRequestLogging();          // custom request logging(middleware)
-app.UseSerilogRequestLogging();         // Request Logging
-
-app.UseHttpsRedirection();              // HTTPS redirect
-app.UseSwagger();                       // Swagger UI
-app.UseSwaggerUI();
-
-app.UseAuthentication();                // Auth
-app.UseAuthorization();                 // Authorization
-
-// ==================================
-//   HEALTH ENDPOINTS
-// ==================================
-app.MapHealthChecks("/health"); //basic health - always returns healthy: for uptime monitors(loadbalancer in cloud)
-app.MapHealthChecks("/health/live", new HealthCheckOptions // checks app is running
+// =======================================================
+app.Use(async (context, next) =>
 {
-    Predicate = _ => false // only self
+    var traceId = System.Diagnostics.Activity.Current?.TraceId.ToString();
+    if (!string.IsNullOrEmpty(traceId))
+    {
+        // Use Append to avoid duplicate-key issues
+        context.Response.Headers.Append("X-Trace-Id", traceId);
+    }
+    await next();
 });
 
-app.MapHealthChecks("health/ready", new HealthCheckOptions // checks db availability. returns structured JSON
+app.UseCorrelationId();
+app.UseCustomRequestLogging();
+app.UseSerilogRequestLogging();
+
+app.UseHttpsRedirection();
+
+app.UseRouting();               // Required for Prometheus
+app.UseHttpMetrics();           // Prometheus middleware (request metrics)
+
+app.UseAuthentication();
+app.UseAuthorization();
+
+app.UseSwagger();
+app.UseSwaggerUI();
+
+// =======================================================
+//   PROMETHEUS /metrics ENDPOINT
+// =======================================================
+app.UseEndpoints(endpoints =>
+{
+    endpoints.MapMetrics();  // <- This exposes /metrics
+});
+
+// =======================================================
+//   HEALTH ENDPOINTS
+// =======================================================
+app.MapHealthChecks("/health");
+app.MapHealthChecks("/health/live", new HealthCheckOptions
+{
+    Predicate = _ => false
+});
+
+app.MapHealthChecks("/health/ready", new HealthCheckOptions
 {
     Predicate = check => check.Tags.Contains("ready"),
     ResponseWriter = async (context, report) =>
@@ -192,14 +248,14 @@ app.MapHealthChecks("health/ready", new HealthCheckOptions // checks db availabi
                 duration = e.Value.Duration.ToString()
             })
         });
+
         await context.Response.WriteAsync(result);
     }
 });
 
-
-// ==================================
+// =======================================================
 //   ROUTING
-// ==================================
-app.MapControllers();                   // Routing
+// =======================================================
+app.MapControllers();
 
 app.Run();

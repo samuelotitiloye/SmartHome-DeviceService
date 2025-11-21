@@ -9,6 +9,8 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using CorrelationId;
 using CorrelationId.Abstractions;
+using System.Text.Json;
+
 
 namespace DeviceService.Api.Middleware
 {
@@ -54,7 +56,7 @@ namespace DeviceService.Api.Middleware
                     detectEncodingFromByteOrderMarks: false,
                     leaveOpen: true);
 
-                requestBody = await reader.ReadToEndAsync();
+                requestBody = PrettyPrintJson(await reader.ReadToEndAsync());
 
                 if (!string.IsNullOrWhiteSpace(requestBody) && requestBody.Length > MaxBodyLengthToLog)
                 {
@@ -75,7 +77,7 @@ namespace DeviceService.Api.Middleware
                 stopwatch.Stop();
 
                 context.Response.Body.Seek(0, SeekOrigin.Begin);
-                var responseText = await new StreamReader(context.Response.Body).ReadToEndAsync();
+                var responseText = PrettyPrintJson(await new StreamReader(context.Response.Body).ReadToEndAsync());
                 context.Response.Body.Seek(0, SeekOrigin.Begin);
 
                 if (!string.IsNullOrWhiteSpace(responseText) && responseText.Length > MaxBodyLengthToLog)
@@ -123,6 +125,25 @@ namespace DeviceService.Api.Middleware
             finally 
             {
                 context.Response.Body = originalResponseBodyStream;
+            }
+        }
+
+        private static string PrettyPrintJson(string json)
+        {
+            if (string.IsNullOrWhiteSpace(json))
+                return json;
+        
+            try
+            {
+                using var doc = JsonDocument.Parse(json);
+                return JsonSerializer.Serialize(doc, new JsonSerializerOptions
+                {
+                    WriteIndented = true
+                });
+            }
+            catch
+            {
+                return json;
             }
         }
 
