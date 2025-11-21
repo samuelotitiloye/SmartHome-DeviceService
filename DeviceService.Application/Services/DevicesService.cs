@@ -1,6 +1,8 @@
 using DeviceService.Application.Devices.Dto;
 using DeviceService.Application.Mappings;
 using DeviceService.Application.Interfaces;
+using DeviceService.Application.Devices.Queries;   
+using DeviceService.Domain.Entities;
 
 namespace DeviceService.Application.Services
 {
@@ -32,6 +34,25 @@ namespace DeviceService.Application.Services
         {
             var devices = await _repo.GetAllAsync();
             return devices.Select(d => d.ToDto());
+        }
+
+        public async Task<PagedResult<DeviceDto>> GetPagedDtoAsync(
+            int page,
+            int pageSize,
+            string? type,
+            string? location,
+            bool? isOnline,
+            CancellationToken ct)
+        {
+            var paged = await _repo.GetPagedAsync(page, pageSize, type, location, isOnline);
+
+            return new PagedResult<DeviceDto>
+            {
+                Items = paged.Items.Select(d => d.ToDto()),
+                Page = paged.Page,
+                PageSize = paged.PageSize,
+                TotalItems = paged.TotalItems
+            };
         }
     }
 }

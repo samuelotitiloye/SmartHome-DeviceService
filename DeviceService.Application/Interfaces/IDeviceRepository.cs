@@ -1,4 +1,5 @@
 using DeviceService.Domain.Entities;
+using DeviceService.Application.Devices.Queries;
 
 namespace DeviceService.Application.Interfaces
 {
@@ -9,5 +10,11 @@ namespace DeviceService.Application.Interfaces
         Task AddAsync(Device device);
         Task UpdateAsync(Device device);
         Task DeleteAsync(Guid id);
+        Task <PagedResult<Device>> GetPagedAsync(
+            int page,
+            int pageSize,
+            string? type,
+            string? location,
+            bool? isOnline);
     }
 }

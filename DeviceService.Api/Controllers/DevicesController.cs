@@ -7,6 +7,9 @@ using DeviceService.Application.Services;
 using DeviceService.Application.Devices.Commands.UpdateDevice;
 using DeviceService.Application.Devices.Commands.RegisterDevice;
 using DeviceService.Application.Devices.Commands.DeleteDevice;
+using DeviceService.Application.Devices.Queries;  
+using DeviceService.Domain.Entities; 
+
 
 namespace DeviceService.Api.Controllers
 {
@@ -75,22 +78,33 @@ namespace DeviceService.Api.Controllers
             return Ok(device);
         }
 
-        // -----------------------
-        //  GET ALL DEVICES
-        // -----------------------
+        // -------------------------
+        //  GET DEVICES (Paginated)
+        // -------------------------
         /// <summary>
-        /// Retrieves all registered devices.
+        /// Retrieves devices using pagination and optional filters.
         /// </summary>
+        /// <param name="page">Page number (1-based).</param>
+        /// <param name="pageSize">Items per page.</param>
+        /// <param name="type">Filter by device type (optional).</param>
+        /// <param name="location">Filter by location (optional).</param>
+        /// <param name="isOnline">Filter by online status (optional).</param>
         /// <param name="ct">Cancellation token.</param>
-        /// <returns>List of devices.</returns>
-        /// <response code="200">Devices returned.</response>
+        /// <returns>Paged list of devices.</returns>
+        /// <response code="200">Paged devices returned.</response>
         [HttpGet]
         [ResponseCache(Duration = 30, Location = ResponseCacheLocation.Any)]
-        [ProducesResponseType(typeof(IEnumerable<DeviceDto>), StatusCodes.Status200OK)]
-         public async Task<IActionResult> GetAllDevices(CancellationToken ct)
+        [ProducesResponseType(typeof(PagedResult<DeviceDto>), StatusCodes.Status200OK)] 
+        public async Task<IActionResult> GetAllDevices(
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 10,
+            [FromQuery] string? type = null,
+            [FromQuery] string? location = null,
+            [FromQuery] bool? isOnline= null,
+            CancellationToken ct = default)
         {
-            var list = await _service.GetAllAsync(ct);
-            return Ok(list);
+            var result = await _service.GetPagedDtoAsync(page, pageSize, type, location, isOnline, ct);
+            return Ok(result);
         }
 
         // -----------------------

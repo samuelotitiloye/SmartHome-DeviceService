@@ -1,5 +1,7 @@
 using DeviceService.Application.Interfaces;
 using DeviceService.Domain.Entities;
+using DeviceService.Application.Devices.Queries;   
+using DeviceService.Domain.Entities;
 
 namespace DeviceService.Infrastructure.Repositories
 {
@@ -47,5 +49,41 @@ namespace DeviceService.Infrastructure.Repositories
 
             return Task.CompletedTask;
         }
+
+        public Task<PagedResult<Device>> GetPagedAsync(
+            int page,
+            int pageSize,
+            string? type,
+            string? location,
+            bool? isOnline)
+        {
+            IEnumerable<Device> query = _devices;
+
+            if (!string.IsNullOrWhiteSpace(type))
+                query = query.Where(d => d.Type.Equals(type, StringComparison.OrdinalIgnoreCase));
+
+            if (!string.IsNullOrWhiteSpace(location))
+                query = query.Where(d => d.Location.Equals(location, StringComparison.OrdinalIgnoreCase));
+
+            if (isOnline.HasValue)
+                query = query.Where(d => d.IsOnline == isOnline.Value);
+
+            var totalItems = query.Count();
+
+            var items = query
+                .OrderBy(d => d.Name)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToList();
+
+            return Task.FromResult(new PagedResult<Device>
+            {
+                Items = items,
+                Page = page,
+                PageSize = pageSize,
+                TotalItems = totalItems
+            });
+        }
+
     }
 }
