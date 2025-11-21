@@ -28,6 +28,9 @@ using OpenTelemetry.Extensions.Hosting;
 
 // Prometheus.NET
 using Prometheus;
+//Rate limiting
+using System.Threading.RateLimiting;
+
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -181,6 +184,36 @@ builder.Services.AddDefaultCorrelationId(options =>
 });
 
 // =======================================================
+//   ADD RATE LIMITING
+// =======================================================
+builder.Services.AddRateLimiter(options =>
+{
+    //global rate limit: 100 requests per minute per IP
+    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _=> new FixedWindowRateLimiterOptions
+            {
+                Window = TimeSpan.FromMinutes(1),
+                PermitLimit = 100,
+                QueueLimit = 0,
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst 
+            }
+        )
+    );
+
+    // custom rejected response
+    options.OnRejected = async (context, token) =>
+    {
+        context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+        await context.HttpContext.Response.WriteAsync(
+            "Too many requests. Please slow down",
+            token
+        );
+    };
+});
+
+// =======================================================
 //   BUILD APP
 // =======================================================
 var app = builder.Build();
@@ -204,6 +237,7 @@ app.UseCustomRequestLogging();
 app.UseSerilogRequestLogging();
 
 app.UseHttpsRedirection();
+app.UseRateLimiter();           //Rate Limiter
 
 app.UseRouting();               // Required for Prometheus
 app.UseHttpMetrics();           // Prometheus middleware (request metrics)
