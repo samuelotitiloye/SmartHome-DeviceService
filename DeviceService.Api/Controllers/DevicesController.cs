@@ -63,6 +63,7 @@ namespace DeviceService.Api.Controllers
         /// <response code="200">Device returned.</response>
         /// <response code="404">Device not found.</response>
         [HttpGet("{id:guid}")]
+        [ResponseCache(Duration = 60, Location = ResponseCacheLocation.Any)]
         [ProducesResponseType(typeof(DeviceDto), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> GetDeviceById(Guid id, CancellationToken ct)
@@ -84,6 +85,7 @@ namespace DeviceService.Api.Controllers
         /// <returns>List of devices.</returns>
         /// <response code="200">Devices returned.</response>
         [HttpGet]
+        [ResponseCache(Duration = 30, Location = ResponseCacheLocation.Any)]
         [ProducesResponseType(typeof(IEnumerable<DeviceDto>), StatusCodes.Status200OK)]
          public async Task<IActionResult> GetAllDevices(CancellationToken ct)
         {

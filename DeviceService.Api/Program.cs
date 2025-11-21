@@ -213,6 +213,9 @@ builder.Services.AddRateLimiter(options =>
     };
 });
 
+builder.Services.AddResponseCaching();
+
+
 // =======================================================
 //   BUILD APP
 // =======================================================
@@ -233,13 +236,25 @@ app.Use(async (context, next) =>
 });
 
 app.UseCorrelationId();
-app.UseCustomRequestLogging();
+app.UseCustomRequestLogging();  // response caching service
 app.UseSerilogRequestLogging();
 
 app.UseHttpsRedirection();
 app.UseRateLimiter();           //Rate Limiter
 
 app.UseRouting();               // Required for Prometheus
+app.UseResponseCaching();       // add caching middleware
+app.Use(async (context, next) =>
+{
+    context.Response.GetTypedHeaders().CacheControl =
+        new Microsoft.Net.Http.Headers.CacheControlHeaderValue()
+        {
+            Public = true,
+            MaxAge = TimeSpan.FromSeconds(30) //lifetime
+        };
+    await next();
+});
+
 app.UseHttpMetrics();           // Prometheus middleware (request metrics)
 
 app.UseAuthentication();
