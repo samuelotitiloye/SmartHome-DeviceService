@@ -2,7 +2,13 @@ using DeviceService.Application.Devices.Dto;
 using DeviceService.Application.Mappings;
 using DeviceService.Application.Interfaces;
 using DeviceService.Application.Devices.Queries;   
+using DeviceService.Application.Interfaces;
+using DeviceService.Application.Common.Models;
+using DeviceService.Application.Devices.Models;
 using DeviceService.Domain.Entities;
+
+using DeviceService.Application.Common.Models;
+
 
 namespace DeviceService.Application.Services
 {
@@ -30,29 +36,34 @@ namespace DeviceService.Application.Services
                 .ContinueWith(t => t.Result?.ToDto(), ct);
         }
 
-        public async Task<IEnumerable<DeviceDto>> GetAllAsync(CancellationToken ct)
-        {
-            var devices = await _repo.GetAllAsync();
-            return devices.Select(d => d.ToDto());
-        }
+        // public async Task<IEnumerable<DeviceDto>> GetAllAsync(CancellationToken ct)
+        // {
+        //     var devices = await _repo.GetAllAsync();
+        //     return devices.Select(d => d.ToDto());
+        // }
 
-        public async Task<PagedResult<DeviceDto>> GetPagedDtoAsync(
+        public async Task<PaginatedResult<Device>> GetPagedAsync(
             int page,
             int pageSize,
             string? type,
             string? location,
             bool? isOnline,
-            CancellationToken ct)
+            CancellationToken cancellationToken = default)
         {
-            var paged = await _repo.GetPagedAsync(page, pageSize, type, location, isOnline);
+            var pagination = new PaginationParameters(page, pageSize);
 
-            return new PagedResult<DeviceDto>
+            var filter = new DeviceFilter
             {
-                Items = paged.Items.Select(d => d.ToDto()),
-                Page = paged.Page,
-                PageSize = paged.PageSize,
-                TotalItems = paged.TotalItems
+                NameContains = null,
+                Location = location,
+                Type = type,
+                IsOnline = isOnline,
+                MinThresholdWatts = null,  // adjust if needed later
+                SortBy = DeviceSortBy.RegisteredAt,
+                SortOrder = SortOrder.Desc
             };
+
+            return await _repo.GetDevicesAsync(filter, pagination, cancellationToken);
         }
     }
 }

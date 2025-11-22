@@ -7,15 +7,17 @@ using DeviceService.Application.Services;
 using DeviceService.Application.Devices.Commands.UpdateDevice;
 using DeviceService.Application.Devices.Commands.RegisterDevice;
 using DeviceService.Application.Devices.Commands.DeleteDevice;
-using DeviceService.Application.Devices.Queries;  
-using DeviceService.Domain.Entities; 
+using DeviceService.Api.Models;
+using DeviceService.Application.Common.Models;
+using DeviceService.Application.Devices.Models;
+using DeviceService.Application.Mappings;
 
 
 namespace DeviceService.Api.Controllers
 {
-    [Authorize]
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize]
     [Tags("Devices")]
     public class DevicesController : ControllerBase
     {
@@ -33,40 +35,23 @@ namespace DeviceService.Api.Controllers
             _mediator = mediator;
         }
 
-        // -----------------------
-        //  REGISTER DEVICE
-        // -----------------------
 
-          /// <summary>
-        /// Registers a new smart home device.
-        /// </summary>
-        /// <param name="dto">The device information to register.</param>
-        /// <param name="ct">Cancellation token.</param>
-        /// <returns>The created device with assigned ID.</returns>
-        /// <response code="201">Device successfully created.</response>
-        /// <response code="400">Invalid device data.</response>
+        // ==============================================================
+        //  REGISTER DEVICE
+        // ==============================================================
         [HttpPost("register")]
         [ProducesResponseType(typeof(DeviceDto), StatusCodes.Status201Created)]
-        [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> RegisterDevice([FromBody] RegisterDeviceDto dto, CancellationToken ct)
         {
             var result = await _service.RegisterDeviceAsync(dto, ct);
             return CreatedAtAction(nameof(GetDeviceById), new { id = result.Id }, result);
         }
 
-        // -----------------------
+
+        // ==============================================================
         //  GET DEVICE BY ID
-        // -----------------------
-           /// <summary>
-        /// Retrieves a device by its unique ID.
-        /// </summary>
-        /// <param name="id">Device ID.</param>
-        /// <param name="ct">Cancellation token.</param>
-        /// <returns>The device if found.</returns>
-        /// <response code="200">Device returned.</response>
-        /// <response code="404">Device not found.</response>
+        // ==============================================================
         [HttpGet("{id:guid}")]
-        [ResponseCache(Duration = 60, Location = ResponseCacheLocation.Any)]
         [ProducesResponseType(typeof(DeviceDto), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> GetDeviceById(Guid id, CancellationToken ct)
@@ -78,46 +63,51 @@ namespace DeviceService.Api.Controllers
             return Ok(device);
         }
 
-        // -------------------------
-        //  GET DEVICES (Paginated)
-        // -------------------------
-        /// <summary>
-        /// Retrieves devices using pagination and optional filters.
-        /// </summary>
-        /// <param name="page">Page number (1-based).</param>
-        /// <param name="pageSize">Items per page.</param>
-        /// <param name="type">Filter by device type (optional).</param>
-        /// <param name="location">Filter by location (optional).</param>
-        /// <param name="isOnline">Filter by online status (optional).</param>
-        /// <param name="ct">Cancellation token.</param>
-        /// <returns>Paged list of devices.</returns>
-        /// <response code="200">Paged devices returned.</response>
+
+        // ==============================================================
+        //  GET DEVICES (PAGINATED)
+        // ==============================================================
         [HttpGet]
-        [ResponseCache(Duration = 30, Location = ResponseCacheLocation.Any)]
-        [ProducesResponseType(typeof(PagedResult<DeviceDto>), StatusCodes.Status200OK)] 
-        public async Task<IActionResult> GetAllDevices(
-            [FromQuery] int page = 1,
-            [FromQuery] int pageSize = 10,
-            [FromQuery] string? type = null,
-            [FromQuery] string? location = null,
-            [FromQuery] bool? isOnline= null,
-            CancellationToken ct = default)
+        [ProducesResponseType(typeof(PaginatedResult<DeviceDto>), StatusCodes.Status200OK)]
+        public async Task<IActionResult> GetAllDevicesAsync([FromQuery] GetDeviceQuery query, CancellationToken ct)
         {
-            var result = await _service.GetPagedDtoAsync(page, pageSize, type, location, isOnline, ct);
-            return Ok(result);
+            var pagination = new PaginationParameters(query.PageNumber, query.PageSize);
+
+            var filter = new DeviceFilter
+            {
+                NameContains = query.Name,
+                Location = query.Location,
+                Type = query.Type,
+                IsOnline = query.IsOnline,   // bool?
+                SortBy = query.SortBy,
+                SortOrder = query.SortOrder
+            };
+
+            var result = await _service.GetPagedAsync(
+                query.PageNumber ?? 1,
+                query.PageSize ?? 10,
+                query.Type,
+                query.Location,
+                query.IsOnline,
+                ct
+            );
+
+            var dtoItems = result.Items.Select(d => d.ToDto()).ToList();
+
+            var response = new PaginatedResult<DeviceDto>(
+                dtoItems,
+                result.PageNumber,
+                result.PageSize,
+                result.TotalCount
+            );
+
+            return Ok(response);
         }
 
-        // -----------------------
+
+        // ==============================================================
         //  UPDATE DEVICE
-        // -----------------------
-        /// <summary>
-        /// Updates an existing device.
-        /// </summary>
-        /// <param name="id">Device ID.</param>
-        /// <param name="dto">Updated device fields.</param>
-        /// <returns>The updated device.</returns>
-        /// <response code="200">Device updated successfully.</response>
-        /// <response code="404">Device not found.</response>
+        // ==============================================================
         [HttpPut("{id:guid}")]
         [ProducesResponseType(typeof(DeviceDto), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -139,20 +129,14 @@ namespace DeviceService.Api.Controllers
             return Ok(result);
         }
 
-        // -----------------------
+
+        // ==============================================================
         //  DELETE DEVICE
-        // -----------------------
-        /// <summary>
-        /// Deletes a device by ID.
-        /// </summary>
-        /// <param name="id">Device ID.</param>
-        /// <returns>No content if deletion is successful.</returns>
-        /// <response code="204">Device deleted.</response>
-        /// <response code="404">Device not found.</response>
+        // ==============================================================
         [HttpDelete("{id:guid}")]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
-         public async Task<IActionResult> DeleteDevice(Guid id)
+        public async Task<IActionResult> DeleteDevice(Guid id)
         {
             var deleted = await _mediator.Send(new DeleteDeviceCommand(id));
 
