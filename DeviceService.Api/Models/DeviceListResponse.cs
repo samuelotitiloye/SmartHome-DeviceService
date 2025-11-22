@@ -1,3 +1,4 @@
+
 namespace DeviceService.Api.Models
 {
     public class DeviceListResponse<TItem>

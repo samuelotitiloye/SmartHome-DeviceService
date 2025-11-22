@@ -11,10 +11,15 @@ using DeviceService.Api.Models;
 using DeviceService.Application.Common.Models;
 using DeviceService.Application.Devices.Models;
 using DeviceService.Application.Mappings;
+using Swashbuckle.AspNetCore.Annotations;
+
 
 
 namespace DeviceService.Api.Controllers
-{
+{   
+    /// <summary>
+    /// Manages all operations for SmartHome devices (creation, update, retrieval and deletion)
+    /// </summary>
     [ApiController]
     [Route("api/[controller]")]
     [Authorize]
@@ -39,7 +44,16 @@ namespace DeviceService.Api.Controllers
         // ==============================================================
         //  REGISTER DEVICE
         // ==============================================================
+        /// <summary>
+        /// Registers a new SmartHome device in the system.
+        /// </summary>
+        /// <param name="dto">The device information required to create a new device.</param>
+        /// <param name="ct">Cancellation token.</param>
+        /// <returns>The newly created device, including its assigned ID.</returns>
         [HttpPost("register")]
+        [SwaggerOperation(
+        Summary = "Registers a new SmartHome device",
+        Description = "Creates a device record and returns the created device with its ID.")]
         [ProducesResponseType(typeof(DeviceDto), StatusCodes.Status201Created)]
         public async Task<IActionResult> RegisterDevice([FromBody] RegisterDeviceDto dto, CancellationToken ct)
         {
@@ -48,9 +62,15 @@ namespace DeviceService.Api.Controllers
         }
 
 
-        // ==============================================================
+        /// ==============================================================
         //  GET DEVICE BY ID
         // ==============================================================
+        /// <summary>
+        /// Retrieves a single SmartHome device by its unique identifier.
+        /// </summary>
+        /// <param name="id">The unique device ID.</param>
+        /// <param name="ct">Cancellation token.</param>
+        /// <returns>The device if found; otherwise, a 404 Not Found response.</returns>
         [HttpGet("{id:guid}")]
         [ProducesResponseType(typeof(DeviceDto), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -64,9 +84,16 @@ namespace DeviceService.Api.Controllers
         }
 
 
-        // ==============================================================
+        /// ==============================================================
         //  GET DEVICES (PAGINATED)
         // ==============================================================
+        /// <summary>
+        /// Retrieves a paginated list of SmartHome devices with optional filtering and sorting.
+        /// </summary>
+        /// <param name="query">Pagination, filtering, and sorting parameters.</param>
+        /// <param name="ct">Cancellation token.</param>
+        /// <returns>A paginated collection of devices with metadata.</returns>
+
         [HttpGet]
         [ProducesResponseType(typeof(PaginatedResult<DeviceDto>), StatusCodes.Status200OK)]
         public async Task<IActionResult> GetAllDevicesAsync([FromQuery] GetDeviceQuery query, CancellationToken ct)
@@ -108,6 +135,14 @@ namespace DeviceService.Api.Controllers
         // ==============================================================
         //  UPDATE DEVICE
         // ==============================================================
+        /// <summary>
+        /// Updates an existing SmartHome device with new information.
+        /// </summary>
+        /// <param name="id">The ID of the device to update.</param>
+        /// <param name="dto">The updated device values.</param>
+        /// <returns>
+        /// The updated device if the operation succeeds; otherwise, a 404 Not Found response.
+        /// </returns>
         [HttpPut("{id:guid}")]
         [ProducesResponseType(typeof(DeviceDto), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -133,6 +168,13 @@ namespace DeviceService.Api.Controllers
         // ==============================================================
         //  DELETE DEVICE
         // ==============================================================
+        /// <summary>
+        /// Deletes a SmartHome device from the system.
+        /// </summary>
+        /// <param name="id">The ID of the device to delete.</param>
+        /// <returns>
+        /// A 204 No Content response if the device was deleted; otherwise, a 404 Not Found.
+        /// </returns>
         [HttpDelete("{id:guid}")]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]

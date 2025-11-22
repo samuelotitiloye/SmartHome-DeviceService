@@ -8,8 +8,8 @@ namespace DeviceService.Application.Devices.Commands.UpdateDevice
         string Name,
         string Type,
         string Location,
-        bool IsOnline,
-        int ThresholdWatts,
+    bool IsOnline,
+    int? ThresholdWatts,
         string SerialNumber
     ) : IRequest<DeviceDto?>;
 }

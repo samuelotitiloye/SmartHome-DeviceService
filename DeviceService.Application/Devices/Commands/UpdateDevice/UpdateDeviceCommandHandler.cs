@@ -27,7 +27,10 @@ namespace DeviceService.Application.Devices.Commands.UpdateDevice
             existing.Type = request.Type;
             existing.Location = request.Location;
             existing.IsOnline = request.IsOnline;
-            existing.ThresholdWatts = request.ThresholdWatts;
+            if (request.ThresholdWatts.HasValue)
+            {
+                existing.ThresholdWatts = request.ThresholdWatts.Value;
+            }
             existing.SerialNumber = request.SerialNumber;
 
             // Save changes

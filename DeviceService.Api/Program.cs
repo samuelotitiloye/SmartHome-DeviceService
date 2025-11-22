@@ -18,6 +18,8 @@ using CorrelationId;
 using CorrelationId.DependencyInjection;
 using System.Text.Json;
 using DeviceService.Api.Middleware;
+using Swashbuckle.AspNetCore.Annotations;
+using System.Reflection;
 
 // OpenTelemetry
 using OpenTelemetry;
@@ -30,7 +32,6 @@ using OpenTelemetry.Extensions.Hosting;
 using Prometheus;
 //Rate limiting
 using System.Threading.RateLimiting;
-
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -46,8 +47,6 @@ builder.Services.AddOpenTelemetry()
         m.AddAspNetCoreInstrumentation();
         m.AddHttpClientInstrumentation();
         m.AddRuntimeInstrumentation();
-        // NOTE: DO NOT call AddPrometheusExporter() here.
-        // We are using prometheus-net instead of OTEL's exporter.
     })
     .WithTracing(t =>
     {
@@ -103,20 +102,33 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 // =======================================================
 builder.Services.AddSwaggerGen(c =>
 {
-    var xmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
-    var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
-    c.IncludeXmlComments(xmlPath);
-
-    c.SwaggerDoc("v1", new OpenApiInfo 
-    { 
-        Title = "Device Service API", 
+    // ==============================================================
+    //  BASIC SWAGGER METADATA
+    // ==============================================================
+    c.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "SmartHome Device Service API",
         Version = "v1",
-        Description = "API for managing smart home devices."
+        Description = "API for managing SmartHome devices including registration, updates, retrieval and deletion."
     });
 
+    // ==============================================================
+    //  XML COMMENT LOADING (Api + Application + Domain)
+    // ==============================================================
+    var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
+    var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
+
+    if (File.Exists(xmlPath))
+    {
+        c.IncludeXmlComments(xmlPath);
+    }
+
+    // ==============================================================
+    //  SECURITY: JWT BEARER AUTH
+    // ==============================================================
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
-        Description = "Enter JWT token: Bearer {your token}", 
+        Description = "JWT Authorization header using the Bearer scheme. Example: \"Bearer {token}\"",
         Name = "Authorization",
         In = ParameterLocation.Header,
         Type = SecuritySchemeType.Http,
@@ -131,13 +143,18 @@ builder.Services.AddSwaggerGen(c =>
             {
                 Reference = new OpenApiReference
                 {
-                    Id = "Bearer",
-                    Type = ReferenceType.SecurityScheme
+                    Type = ReferenceType.SecurityScheme,
+                    Id = "Bearer"
                 }
             },
             Array.Empty<string>()
         }
     });
+
+    // ==============================================================
+    //  OPERATION TAG SUPPORT (e.g., [Tags("Devices")])
+    // ==============================================================
+    c.EnableAnnotations(); // Required for [SwaggerOperation] & [Tags]
 });
 
 // =======================================================
@@ -206,6 +223,8 @@ builder.Services.AddRateLimiter(options =>
     options.OnRejected = async (context, token) =>
     {
         context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+        context.HttpContext.Response.ContentType = "text/plain";  
+
         await context.HttpContext.Response.WriteAsync(
             "Too many requests. Please slow down",
             token
@@ -224,26 +243,31 @@ var app = builder.Build();
 // =======================================================
 //   GLOBAL MIDDLEWARE PIPELINE 
 // =======================================================
-app.Use(async (context, next) =>
-{
-    var traceId = System.Diagnostics.Activity.Current?.TraceId.ToString();
-    if (!string.IsNullOrEmpty(traceId))
-    {
-        // Use Append to avoid duplicate-key issues
-        context.Response.Headers.Append("X-Trace-Id", traceId);
-    }
-    await next();
-});
 
 app.UseCorrelationId();
+app.Use(async (context, next) =>
+{
+    await next();
+
+    if (!context.Response.HasStarted)
+    {
+        var traceId = System.Diagnostics.Activity.Current?.TraceId.ToString();
+        if (!string.IsNullOrEmpty(traceId))
+            context.Response.Headers["X-Trace-Id"] = traceId;
+    }
+});
+
 app.UseCustomRequestLogging();  // response caching service
 app.UseSerilogRequestLogging();
 
 app.UseHttpsRedirection();
+
 app.UseRateLimiter();           //Rate Limiter
 
 app.UseRouting();               // Required for Prometheus
-app.UseResponseCaching();       // add caching middleware
+
+// add caching middleware (headers + middleware)
+app.UseResponseCaching();       
 app.Use(async (context, next) =>
 {
     context.Response.GetTypedHeaders().CacheControl =
@@ -255,20 +279,38 @@ app.Use(async (context, next) =>
     await next();
 });
 
-app.UseHttpMetrics();           // Prometheus middleware (request metrics)
+// Prometheus middleware (request metrics)
+app.UseHttpMetrics();           
 
 app.UseAuthentication();
 app.UseAuthorization();
 
+// =======================================================
+//   SWAGGER (Enable before MapControllers())
+// =======================================================
+app.Use(async (ctx, next) =>
+{
+    if (ctx.Request.Path.StartsWithSegments("/swagger"))
+    {
+        ctx.Response.Headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0";
+        ctx.Response.Headers["Pragma"] = "no-cache";
+        ctx.Response.Headers["Expires"] = "0";
+    }
+    await next();
+});
+
 app.UseSwagger();
-app.UseSwaggerUI();
+app.UseSwaggerUI(c => 
+{
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "SmartHome Device Service API v1");
+});
 
 // =======================================================
-//   PROMETHEUS /metrics ENDPOINT
+//   PROMETHEUS /metrics
 // =======================================================
 app.UseEndpoints(endpoints =>
 {
-    endpoints.MapMetrics();  // <- This exposes /metrics
+    endpoints.MapMetrics();  // exposes /metrics
 });
 
 // =======================================================
