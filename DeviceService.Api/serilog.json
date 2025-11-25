@@ -1,0 +1,25 @@
+{
+  "Serilog": {
+    "using": [
+      "Serilog.Sinks.Console",
+      "Serilog.Sinks.File"
+    ],
+    "MinimumLevel": {
+      "Default": "Information",
+      "Override": {
+        "Microsoft": "Warning",
+        "System": "Warning"
+      }
+    },
+    "Enrich": [
+      "FromLogContext",
+      "WithEnvironmentName",
+      "WithMachineName",
+      "WithThreadId",
+      "WithProcessId"
+    ],
+    "Properties": {
+      "Application": "DeviceService"
+    }
+  }
+}

@@ -13,7 +13,6 @@ using DeviceService.Api.Auth;
 using DeviceService.Application.Devices.Commands.UpdateDevice;
 using DeviceService.Application.Services;
 using Serilog;
-using DeviceService.Api.Configuration;
 using CorrelationId;
 using CorrelationId.DependencyInjection;
 using System.Text.Json;
@@ -34,8 +33,16 @@ using Prometheus;
 using System.Threading.RateLimiting;
 using DeviceService.Application;
 using System.Diagnostics;
+using Serilog.Enrichers.Span;
+using DeviceService.Api.Middleware;
+using Serilog.Events;
+using Serilog.Formatting;
+using DeviceService.Api.Logging;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Load external Serilog config
+builder.Configuration.AddJsonFile("serilog.json", optional: false, reloadOnChange: true);
 
 // =======================================================
 //  OpenTelemetry: Resource + Metrics + Traces
@@ -84,7 +91,17 @@ builder.Services.AddOpenTelemetry()
 // =======================================================
 //   SERILOG 
 // =======================================================
-SerilogConfiguration.ConfigureLogging(builder);
+builder.Host.UseSerilog((context, services, configuration) => 
+{
+    configuration
+        .WriteTo.Console(new PrettyJsonFormatter())
+        .WriteTo.File(new PrettyJsonFormatter(), "logs/log-.json", rollingInterval: RollingInterval.Day)
+        .ReadFrom.Configuration(context.Configuration)
+        .ReadFrom.Services(services)
+        .Enrich.FromLogContext()
+        .Enrich.WithSpan()
+        .Enrich.WithProperty("ServiceName", "DeviceService.Api");
+});
 
 // =======================================================
 //   SERVICES
@@ -271,6 +288,7 @@ var app = builder.Build();
 
 app.UseCustomRequestLogging();  // response caching service
 app.UseSerilogRequestLogging();
+app.UseMiddleware<LogEnrichmentMiddleware>();
 
 app.UseHttpsRedirection();
 
