@@ -32,7 +32,8 @@ using OpenTelemetry.Extensions.Hosting;
 using Prometheus;
 //Rate limiting
 using System.Threading.RateLimiting;
-
+using DeviceService.Application;
+using System.Diagnostics;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -40,21 +41,45 @@ var builder = WebApplication.CreateBuilder(args);
 //  OpenTelemetry: Resource + Metrics + Traces
 // =======================================================
 builder.Services.AddOpenTelemetry()
-    .ConfigureResource(r =>
-        r.AddService("SmartHome-DeviceService"))
-    .WithMetrics(m =>
+    .ConfigureResource(resourceBuilder =>
     {
-        m.AddAspNetCoreInstrumentation();
-        m.AddHttpClientInstrumentation();
-        m.AddRuntimeInstrumentation();
-    })
-    .WithTracing(t =>
-    {
-        t.AddAspNetCoreInstrumentation(o => o.RecordException = true);
-        t.AddHttpClientInstrumentation();
-        t.AddSqlClientInstrumentation();
-        t.AddOtlpExporter();
-    });
+        resourceBuilder
+            .AddService(
+                serviceName: "DeviceService.Api",
+                serviceVersion: "1.0.0",
+                serviceInstanceId: Environment.MachineName)
+            .AddAttributes(new KeyValuePair<string, object>[]
+            {
+                new("deployment.environment", builder.Environment.EnvironmentName),
+                new("service.namespace", "SmartHome")
+            });
+        })
+        .WithTracing(tracing => 
+        {
+            tracing
+                //Manual spans
+                .AddSource(Telemetry.ActivitySourceName)
+
+                //ASP.NET Core incoming requests
+                .AddAspNetCoreInstrumentation(o =>
+                {
+                    o.Filter = ctx =>
+                    {
+                        var path = ctx.Request.Path.Value;
+                        if (string.IsNullOrEmpty(path)) return true;
+                        return !path.StartsWith("/health", StringComparison.OrdinalIgnoreCase);
+                    };
+                })  
+            // outgoing HttpClient spans
+            .AddHttpClientInstrumentation()
+
+            //OTLP exporter -> Jaeger
+            .AddOtlpExporter(otlpOptions =>
+            {
+                otlpOptions.Endpoint = new Uri("http://localhost:4317"); //Jaeger OTLP gRPC
+            });
+        });
+
 
 // =======================================================
 //   SERILOG 
@@ -244,26 +269,13 @@ var app = builder.Build();
 //   GLOBAL MIDDLEWARE PIPELINE 
 // =======================================================
 
-app.UseCorrelationId();
-app.Use(async (context, next) =>
-{
-    await next();
-
-    if (!context.Response.HasStarted)
-    {
-        var traceId = System.Diagnostics.Activity.Current?.TraceId.ToString();
-        if (!string.IsNullOrEmpty(traceId))
-            context.Response.Headers["X-Trace-Id"] = traceId;
-    }
-});
-
 app.UseCustomRequestLogging();  // response caching service
 app.UseSerilogRequestLogging();
 
 app.UseHttpsRedirection();
 
 app.UseRateLimiter();           //Rate Limiter
-
+app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseRouting();               // Required for Prometheus
 
 // add caching middleware (headers + middleware)
