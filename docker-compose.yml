@@ -4,6 +4,9 @@ services:
       context: .
       dockerfile: DeviceService.Api/Dockerfile
     container_name: deviceservice.api
+    depends_on:
+      postgres:
+        condition: service_healthy
     ports:
       - "8080:8080"
     environment:
@@ -11,9 +14,10 @@ services:
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
       ConnectionStrings__DefaultConnection: "Host=postgres;Database=${POSTGRES_DB};Username=${DB_USER};Password=${DB_PASSWORD}"
-    command: ["/wait-for-it.sh", "postgres:5432", "--", "dotnet", "DeviceService.Api.dll"]
-    depends_on:
-      - postgres
+    healthcheck:
+      test: ["CMD", "wget", "-q0-", "http://localhost:8080/health/ready"]
+      interval: 10s
+      retries: 3
 
   postgres:
     image: postgres:16
@@ -27,6 +31,12 @@ services:
       - "5433:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
 
 volumes:
   pgdata:
