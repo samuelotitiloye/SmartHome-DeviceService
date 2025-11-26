@@ -39,7 +39,6 @@ using Serilog.Events;
 using Serilog.Formatting;
 using DeviceService.Api.Logging;
 using OpenTelemetry.Exporter;
-using OpenTelemetry.Metrics;
 
 
 
