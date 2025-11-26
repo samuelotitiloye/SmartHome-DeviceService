@@ -38,6 +38,10 @@ using DeviceService.Api.Middleware;
 using Serilog.Events;
 using Serilog.Formatting;
 using DeviceService.Api.Logging;
+using OpenTelemetry.Exporter;
+using OpenTelemetry.Metrics;
+
+
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -48,43 +52,52 @@ builder.Configuration.AddJsonFile("serilog.json", optional: false, reloadOnChang
 //  OpenTelemetry: Resource + Metrics + Traces
 // =======================================================
 builder.Services.AddOpenTelemetry()
-    .ConfigureResource(resourceBuilder =>
-    {
-        resourceBuilder
-            .AddService(
-                serviceName: "DeviceService.Api",
-                serviceVersion: "1.0.0",
-                serviceInstanceId: Environment.MachineName)
-            .AddAttributes(new KeyValuePair<string, object>[]
-            {
-                new("deployment.environment", builder.Environment.EnvironmentName),
-                new("service.namespace", "SmartHome")
-            });
-        })
+    .ConfigureResource(resource => resource.AddService("SmartHome-DeviceService"))
         .WithTracing(tracing => 
         {
             tracing
-                //Manual spans
-                .AddSource(Telemetry.ActivitySourceName)
-
-                //ASP.NET Core incoming requests
-                .AddAspNetCoreInstrumentation(o =>
+                // incoming ASP.NET reqs
+                .AddAspNetCoreInstrumentation(options =>
                 {
-                    o.Filter = ctx =>
+                    options.RecordException = true;
+
+                    // eclude health endpoints
+                    options.Filter = ctx =>
                     {
                         var path = ctx.Request.Path.Value;
-                        if (string.IsNullOrEmpty(path)) return true;
+                        if (string.IsNullOrEmpty(path))
+                            return true;
+                        
                         return !path.StartsWith("/health", StringComparison.OrdinalIgnoreCase);
                     };
-                })  
-            // outgoing HttpClient spans
+
+                })
+                // outgoing HttpClient calls
+                .AddHttpClientInstrumentation()
+                //Exporter -> Jaeger
+                .AddJaegerExporter(jaeger =>
+                {
+                    jaeger.AgentHost = "localhost";
+                    jaeger.AgentPort = 6831;
+                });
+        })
+        .WithMetrics(metrics =>
+        {
+            metrics
+            // ASP.NET metrics
+            .AddAspNetCoreInstrumentation()
+
+            // HttpClient metrics
             .AddHttpClientInstrumentation()
 
-            //OTLP exporter -> Jaeger
-            .AddOtlpExporter(otlpOptions =>
-            {
-                otlpOptions.Endpoint = new Uri("http://localhost:4317"); //Jaeger OTLP gRPC
-            });
+            // .NET runtime metrics
+            .AddRuntimeInstrumentation()
+
+            // CPU, memory, thread-pool metrics
+            .AddProcessInstrumentation()
+
+            // EXPORTER → Prometheus
+            .AddPrometheusExporter();
         });
 
 
@@ -94,13 +107,31 @@ builder.Services.AddOpenTelemetry()
 builder.Host.UseSerilog((context, services, configuration) => 
 {
     configuration
-        .WriteTo.Console(new PrettyJsonFormatter())
-        .WriteTo.File(new PrettyJsonFormatter(), "logs/log-.json", rollingInterval: RollingInterval.Day)
+         // -------------------------------
+        // 1. Load from serilog.json first
+        // --------------------------------
         .ReadFrom.Configuration(context.Configuration)
         .ReadFrom.Services(services)
+
+        // -------------------------------
+        // 2. Core Log Sinks
+        // -------------------------------
+        .WriteTo.Console(new PrettyJsonFormatter())
+        .WriteTo.File(new PrettyJsonFormatter(), "logs/log-.json", rollingInterval: RollingInterval.Day)
+        
+        // --------------------------------
+        // 3. Add ENRICHERS 
+        // --------------------------------
         .Enrich.FromLogContext()
         .Enrich.WithSpan()
-        .Enrich.WithProperty("ServiceName", "DeviceService.Api");
+        .Enrich.WithCorrelationId()
+        .Enrich.WithMachineName()
+        .Enrich.WithProcessId()
+        .Enrich.WithProcessName()
+        .Enrich.WithThreadId()
+        .Enrich.WithEnvironmentUserName()
+        .Enrich.WithProperty("ServiceName", "DeviceService.Api")
+        .Enrich.WithProperty("Environment", context.HostingEnvironment.EnvironmentName);
 });
 
 // =======================================================
@@ -285,19 +316,32 @@ var app = builder.Build();
 // =======================================================
 //   GLOBAL MIDDLEWARE PIPELINE 
 // =======================================================
-
-app.UseCustomRequestLogging();  // response caching service
-app.UseSerilogRequestLogging();
-app.UseMiddleware<LogEnrichmentMiddleware>();
-
+//----------Early Middleware(pre routing)
 app.UseHttpsRedirection();
-
 app.UseRateLimiter();           //Rate Limiter
 app.UseMiddleware<CorrelationIdMiddleware>();
-app.UseRouting();               // Required for Prometheus
+app.UseMiddleware<LogEnrichmentMiddleware>();
+app.UseResponseCaching();  
+app.UseHttpMetrics();    
+
+//-------Routing-------
+app.UseRouting();               
+
+//-------Auth/Auth-----
+app.UseAuthentication();
+app.UseAuthorization();
+
+// ----------------------------------------------
+//      CUSTOM REQUEST LOGGING
+// ----------------------------------------------
+app.UseCustomRequestLogging(); 
+
+// ----------------------------------------------
+// Prometheus scraping endpoint
+// ----------------------------------------------
+app.MapPrometheusScrapingEndpoint();
 
 // add caching middleware (headers + middleware)
-app.UseResponseCaching();       
 app.Use(async (context, next) =>
 {
     context.Response.GetTypedHeaders().CacheControl =
@@ -309,42 +353,20 @@ app.Use(async (context, next) =>
     await next();
 });
 
-// Prometheus middleware (request metrics)
-app.UseHttpMetrics();           
-
-app.UseAuthentication();
-app.UseAuthorization();
-
 // =======================================================
-//   SWAGGER (Enable before MapControllers())
+//   SWAGGER (static assets)
 // =======================================================
-app.Use(async (ctx, next) =>
-{
-    if (ctx.Request.Path.StartsWithSegments("/swagger"))
-    {
-        ctx.Response.Headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0";
-        ctx.Response.Headers["Pragma"] = "no-cache";
-        ctx.Response.Headers["Expires"] = "0";
-    }
-    await next();
-});
-
 app.UseSwagger();
 app.UseSwaggerUI(c => 
 {
     c.SwaggerEndpoint("/swagger/v1/swagger.json", "SmartHome Device Service API v1");
 });
 
-// =======================================================
-//   PROMETHEUS /metrics
-// =======================================================
-app.UseEndpoints(endpoints =>
-{
-    endpoints.MapMetrics();  // exposes /metrics
-});
+//----- endpoint route selection starts MVC-----
+app.MapControllers();
 
 // =======================================================
-//   HEALTH ENDPOINTS
+//   HEALTH CHECKS
 // =======================================================
 app.MapHealthChecks("/health");
 app.MapHealthChecks("/health/live", new HealthCheckOptions
@@ -373,10 +395,5 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
         await context.Response.WriteAsync(result);
     }
 });
-
-// =======================================================
-//   ROUTING
-// =======================================================
-app.MapControllers();
 
 app.Run();
