@@ -1,0 +1,32 @@
+services:
+  deviceservice.api:
+    build:
+      context: .
+      dockerfile: DeviceService.Api/Dockerfile
+    container_name: deviceservice.api
+    ports:
+      - "8080:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      ConnectionStrings__DefaultConnection: "Host=postgres;Database=${POSTGRES_DB};Username=${DB_USER};Password=${DB_PASSWORD}"
+    command: ["/wait-for-it.sh", "postgres:5432", "--", "dotnet", "DeviceService.Api.dll"]
+    depends_on:
+      - postgres
+
+  postgres:
+    image: postgres:16
+    container_name: deviceservice.db
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports: 
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:

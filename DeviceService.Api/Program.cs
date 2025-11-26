@@ -232,23 +232,17 @@ builder.Services.AddSwaggerGen(c =>
 // =======================================================
 //   DATABASE CONFIGURATION
 // =======================================================
-var dbUser = Environment.GetEnvironmentVariable("DB_USER");
-var dbPassword = Environment.GetEnvironmentVariable("DB_PASSWORD");
-
-if (string.IsNullOrEmpty(dbUser) || string.IsNullOrEmpty(dbPassword))
-{
-    throw new InvalidOperationException("DB_USER or DB_PASSWORD environment variables are not set.");
-}
-
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
-    ?? throw new Exception("Database connection string 'DefaultConnection' is missing.");
-
-connectionString = connectionString
-    .Replace("${DB_USER}", dbUser)
-    .Replace("${DB_PASSWORD}", dbPassword);
+   ?? throw new Exception("Connection string 'DefaultConnection' is missing.");
 
 builder.Services.AddDbContext<DeviceDbContext>(options =>
-    options.UseNpgsql(connectionString));
+    options.UseNpgsql(connectionString, npgsql => 
+    {
+        npgsql.EnableRetryOnFailure(
+            maxRetryCount: 10,
+            maxRetryDelay: TimeSpan.FromSeconds(5),
+            errorCodesToAdd: null);
+    }));
 
 // =======================================================
 //  HEALTH CHECKS
@@ -325,6 +319,10 @@ app.UseHttpMetrics();
 
 //-------Routing-------
 app.UseRouting();               
+if (!app.Environment.IsDevelopment() && Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER") != "true")
+{
+    app.UseHttpsRedirection();
+}
 
 //-------Auth/Auth-----
 app.UseAuthentication();
@@ -394,5 +392,40 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
         await context.Response.WriteAsync(result);
     }
 });
+
+// =========================================
+// ENSURE DATABASE MIGRATIONS RUN WITH RETRY
+// ==========================================
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<DeviceDbContext>();
+    var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+
+    var maxRetries = 10;
+    var delay = TimeSpan.FromSeconds(3);
+
+    for (int attempt = 1; attempt <= maxRetries; attempt++)
+    {
+        try
+        {
+            logger.LogInformation("Attempt {Attempt}/{MaxRetries}: Applying migrations...", attempt, maxRetries);
+            db.Database.Migrate();
+            logger.LogInformation("Migrations applied successfully.");
+            break;
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Migration attempt {Attempt} failed.", attempt);
+
+            if (attempt == maxRetries)
+            {
+                logger.LogError("Max retry attempts reached. Migrations failed");
+                throw;
+            }
+
+            await Task.Delay(delay);
+        }
+    }
+}
 
 app.Run();
