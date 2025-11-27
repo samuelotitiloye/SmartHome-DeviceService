@@ -192,7 +192,7 @@ builder.Services.AddSwaggerGen(c =>
 //  HEALTH CHECKS
 // ===========================================
 builder.Services.AddHealthChecks()
-    .AddNpgSql(connectionString);
+    .AddNpgSql(connectionString, name: "postgres");
 
 // ============================================
 //  OpenTelemetry: METRICS ONLY (Prometheus)
