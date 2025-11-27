@@ -1,182 +1,147 @@
-using DeviceService.Infrastructure.Health;
-using Microsoft.AspNetCore.Diagnostics.HealthChecks;
-using Microsoft.Extensions.Diagnostics.HealthChecks;   
+using System.Reflection;
+using System.Text;
+using System.Text.Json;
+using System.Threading.RateLimiting;
+
+using DeviceService.Api.Auth;
+using DeviceService.Api.Logging;
+using DeviceService.Api.Middleware;
+using DeviceService.Application;
+using DeviceService.Application.Devices.Commands.UpdateDevice;
 using DeviceService.Application.Interfaces;
-using DeviceService.Infrastructure.Repositories;
+using DeviceService.Application.Services;
 using DeviceService.Infrastructure.Persistence;
-using Microsoft.EntityFrameworkCore;
+using DeviceService.Infrastructure.Repositories;
+
+using MediatR;
+
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
-using System.Text;
-using DeviceService.Api.Auth;
-using DeviceService.Application.Devices.Commands.UpdateDevice;
-using DeviceService.Application.Services;
-using Serilog;
-using CorrelationId;
-using CorrelationId.DependencyInjection;
-using System.Text.Json;
-using DeviceService.Api.Middleware;
-using Swashbuckle.AspNetCore.Annotations;
-using System.Reflection;
 
-// OpenTelemetry
 using OpenTelemetry;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
-using OpenTelemetry.Trace;
-using OpenTelemetry.Extensions.Hosting;
 
-// Prometheus.NET
-using Prometheus;
-//Rate limiting
-using System.Threading.RateLimiting;
-using DeviceService.Application;
-using System.Diagnostics;
-using Serilog.Enrichers.Span;
-using DeviceService.Api.Middleware;
-using Serilog.Events;
-using Serilog.Formatting;
-using DeviceService.Api.Logging;
-using OpenTelemetry.Exporter;
+using Serilog;
+using CorrelationId;
+using CorrelationId.DependencyInjection;
 
-
-
+// =============
+//  BUILDER
+// =============
 var builder = WebApplication.CreateBuilder(args);
 
-// Load external Serilog config
-builder.Configuration.AddJsonFile("serilog.json", optional: false, reloadOnChange: true);
+// ========================================
+//  LOAD ENVIRONMENT VARIABLES
+// ========================================
+builder.Configuration.AddEnvironmentVariables();
 
-// =======================================================
-//  OpenTelemetry: Resource + Metrics + Traces
-// =======================================================
-builder.Services.AddOpenTelemetry()
-    .ConfigureResource(resource => resource.AddService("SmartHome-DeviceService"))
-        .WithTracing(tracing => 
-        {
-            tracing
-                // incoming ASP.NET reqs
-                .AddAspNetCoreInstrumentation(options =>
-                {
-                    options.RecordException = true;
-
-                    // eclude health endpoints
-                    options.Filter = ctx =>
-                    {
-                        var path = ctx.Request.Path.Value;
-                        if (string.IsNullOrEmpty(path))
-                            return true;
-                        
-                        return !path.StartsWith("/health", StringComparison.OrdinalIgnoreCase);
-                    };
-
-                })
-                // outgoing HttpClient calls
-                .AddHttpClientInstrumentation()
-                //Exporter -> Jaeger
-                .AddJaegerExporter(jaeger =>
-                {
-                    jaeger.AgentHost = "localhost";
-                    jaeger.AgentPort = 6831;
-                });
-        })
-        .WithMetrics(metrics =>
-        {
-            metrics
-            // ASP.NET metrics
-            .AddAspNetCoreInstrumentation()
-
-            // HttpClient metrics
-            .AddHttpClientInstrumentation()
-
-            // .NET runtime metrics
-            .AddRuntimeInstrumentation()
-
-            // CPU, memory, thread-pool metrics
-            .AddProcessInstrumentation()
-
-            // EXPORTER → Prometheus
-            .AddPrometheusExporter();
-        });
-
-
-// =======================================================
-//   SERILOG 
-// =======================================================
-builder.Host.UseSerilog((context, services, configuration) => 
+// ========================================
+//  SERILOG CONFIGURATION (SIMPLIFIED)
+// ========================================
+builder.Host.UseSerilog((ctx, lc) =>
 {
-    configuration
-         // -------------------------------
-        // 1. Load from serilog.json first
-        // --------------------------------
-        .ReadFrom.Configuration(context.Configuration)
-        .ReadFrom.Services(services)
+    lc.ReadFrom.Configuration(ctx.Configuration)
+      .Enrich.FromLogContext()
+      .Enrich.WithMachineName()
+      .WriteTo.Console();
+});
 
-        // -------------------------------
-        // 2. Core Log Sinks
-        // -------------------------------
-        .WriteTo.Console(new PrettyJsonFormatter())
-        .WriteTo.File(new PrettyJsonFormatter(), "logs/log-.json", rollingInterval: RollingInterval.Day)
-        
-        // --------------------------------
-        // 3. Add ENRICHERS 
-        // --------------------------------
-        .Enrich.FromLogContext()
-        .Enrich.WithSpan()
-        .Enrich.WithCorrelationId()
-        .Enrich.WithMachineName()
-        .Enrich.WithProcessId()
-        .Enrich.WithProcessName()
-        .Enrich.WithThreadId()
-        .Enrich.WithEnvironmentUserName()
-        .Enrich.WithProperty("ServiceName", "DeviceService.Api")
-        .Enrich.WithProperty("Environment", context.HostingEnvironment.EnvironmentName);
+// ========================================
+//  DB CONFIG (ENV VARS)
+// ========================================
+string GetEnv(string key, bool required = true)
+{
+    var value = Environment.GetEnvironmentVariable(key);
+
+    if (required && string.IsNullOrWhiteSpace(value))
+        throw new InvalidOperationException($"Missing required environment variable: {key}");
+
+    return value ?? "";
+}
+
+var dbHost = GetEnv("DB_HOST");
+var dbPort = GetEnv("DB_PORT");
+var dbUser = GetEnv("DB_USERNAME");
+var dbPass = GetEnv("DB_PASSWORD");
+var dbName = GetEnv("DB_DATABASE");
+
+var connectionString =
+    $"Host={dbHost};Port={dbPort};Database={dbName};Username={dbUser};Password={dbPass};";
+
+// ========================================
+//  EF CORE (PostgreSQL + Retry)
+// ========================================
+builder.Services.AddDbContext<DeviceDbContext>(options =>
+{
+    options.UseNpgsql(connectionString, npgsql =>
+    {
+        npgsql.EnableRetryOnFailure(
+            maxRetryCount: 10,
+            maxRetryDelay: TimeSpan.FromSeconds(5),
+            errorCodesToAdd: null);
+    });
 });
 
 // =======================================================
-//   SERVICES
+//  JWT CONFIGURATION (ENV VARS)
 // =======================================================
-builder.Services.AddControllers();
-builder.Services.AddEndpointsApiExplorer();
+var jwtIssuer = GetEnv("JWT_ISSUER");
+var jwtAudience = GetEnv("JWT_AUDIENCE");
+var jwtSecret = GetEnv("JWT_SECRET");
 
-// App Services
-builder.Services.AddScoped<DevicesService>();
-builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(UpdateDeviceCommand).Assembly));
+var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret));
 
-// =======================================================
-//   JWT CONFIGURATION
-// =======================================================
-builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("Jwt"));
-builder.Services.AddSingleton<JwtTokenService>();
-
-var jwtSection = builder.Configuration.GetSection("Jwt");
-var secretKey = jwtSection.GetValue<string>("Secret") 
-    ?? throw new InvalidOperationException("JWT secret is not configured in appsettings.json");
-
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+builder.Services
+    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,
+            ValidIssuer = jwtIssuer,
             ValidateAudience = true,
-            ValidateLifetime = true,
+            ValidAudience = jwtAudience,
             ValidateIssuerSigningKey = true,
-            ValidIssuer = jwtSection.GetValue<string>("Issuer"),
-            ValidAudience = jwtSection.GetValue<string>("Audience"),
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey)),
-            ClockSkew = TimeSpan.Zero
+            IssuerSigningKey = signingKey,
+            ValidateLifetime = true
         };
     });
 
+// Register TokenService for AuthController
+builder.Services.AddSingleton<JwtTokenService>();
+
+// ========================================
+//  DEPENDENCY INJECTION (DOMAIN + APP)
+// ========================================
+builder.Services.AddScoped<IDeviceRepository, DeviceRepository>();
+builder.Services.AddScoped<IDevicesService, DevicesService>();
+builder.Services.AddScoped<DevicesService>(); // optional: only if you inject concrete type
+
+builder.Services.AddMediatR(cfg =>
+    cfg.RegisterServicesFromAssembly(typeof(UpdateDeviceCommand).Assembly));
+
+// ========================================
+//  CONTROLLERS + JSON OPTIONS
+// ========================================
+builder.Services.AddControllers()
+    .AddJsonOptions(opts =>
+    {
+        opts.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
+        opts.JsonSerializerOptions.WriteIndented = false;
+    });
+
 // =======================================================
-//   SWAGGER CONFIGURATION
+//  SWAGGER / OPENAPI CONFIG
 // =======================================================
+builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
-    // ==============================================================
-    //  BASIC SWAGGER METADATA
-    // ==============================================================
+    // Basic metadata
     c.SwaggerDoc("v1", new OpenApiInfo
     {
         Title = "SmartHome Device Service API",
@@ -184,9 +149,7 @@ builder.Services.AddSwaggerGen(c =>
         Description = "API for managing SmartHome devices including registration, updates, retrieval and deletion."
     });
 
-    // ==============================================================
-    //  XML COMMENT LOADING (Api + Application + Domain)
-    // ==============================================================
+    // XML comments
     var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
     var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
 
@@ -195,9 +158,7 @@ builder.Services.AddSwaggerGen(c =>
         c.IncludeXmlComments(xmlPath);
     }
 
-    // ==============================================================
-    //  SECURITY: JWT BEARER AUTH
-    // ==============================================================
+    // JWT Bearer auth
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         Description = "JWT Authorization header using the Bearer scheme. Example: \"Bearer {token}\"",
@@ -223,41 +184,33 @@ builder.Services.AddSwaggerGen(c =>
         }
     });
 
-    // ==============================================================
-    //  OPERATION TAG SUPPORT (e.g., [Tags("Devices")])
-    // ==============================================================
-    c.EnableAnnotations(); // Required for [SwaggerOperation] & [Tags]
+    // Annotations ([SwaggerOperation], [Tags])
+    c.EnableAnnotations();
 });
-
-// =======================================================
-//   DATABASE CONFIGURATION
-// =======================================================
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
-   ?? throw new Exception("Connection string 'DefaultConnection' is missing.");
-
-builder.Services.AddDbContext<DeviceDbContext>(options =>
-    options.UseNpgsql(connectionString, npgsql => 
-    {
-        npgsql.EnableRetryOnFailure(
-            maxRetryCount: 10,
-            maxRetryDelay: TimeSpan.FromSeconds(5),
-            errorCodesToAdd: null);
-    }));
 
 // =======================================================
 //  HEALTH CHECKS
 // =======================================================
 builder.Services.AddHealthChecks()
-    .AddCheck("self", () => HealthCheckResult.Healthy())
-    .AddCheck("database", new DbHealthCheck(connectionString), tags: new[] { "ready" });
+    .AddNpgsql(connectionString, name: "postgres");
 
 // =======================================================
-//  REPOSITORY
+//  OpenTelemetry: METRICS ONLY (Prometheus)
 // =======================================================
-builder.Services.AddScoped<IDeviceRepository, DeviceRepository>();
+builder.Services.AddOpenTelemetry()
+    .ConfigureResource(resource => resource.AddService("SmartHome-DeviceService"))
+    .WithMetrics(metrics =>
+    {
+        metrics
+            .AddAspNetCoreInstrumentation()
+            .AddHttpClientInstrumentation()
+            .AddRuntimeInstrumentation()
+            .AddProcessInstrumentation()
+            .AddPrometheusExporter();
+    });
 
 // =======================================================
-//   CORRELATION ID
+//  CORRELATION ID
 // =======================================================
 builder.Services.AddDefaultCorrelationId(options =>
 {
@@ -267,20 +220,20 @@ builder.Services.AddDefaultCorrelationId(options =>
 });
 
 // =======================================================
-//   ADD RATE LIMITING
+//  RATE LIMITING
 // =======================================================
 builder.Services.AddRateLimiter(options =>
 {
-    //global rate limit: 100 requests per minute per IP
+    // global rate limit: 100 requests per minute per IP
     options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(httpContext =>
         RateLimitPartition.GetFixedWindowLimiter(
             partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
-            factory: _=> new FixedWindowRateLimiterOptions
+            factory: _ => new FixedWindowRateLimiterOptions
             {
                 Window = TimeSpan.FromMinutes(1),
                 PermitLimit = 100,
                 QueueLimit = 0,
-                QueueProcessingOrder = QueueProcessingOrder.OldestFirst 
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst
             }
         )
     );
@@ -289,7 +242,7 @@ builder.Services.AddRateLimiter(options =>
     options.OnRejected = async (context, token) =>
     {
         context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
-        context.HttpContext.Response.ContentType = "text/plain";  
+        context.HttpContext.Response.ContentType = "text/plain";
 
         await context.HttpContext.Response.WriteAsync(
             "Too many requests. Please slow down",
@@ -298,72 +251,68 @@ builder.Services.AddRateLimiter(options =>
     };
 });
 
+// =======================================================
+//  RESPONSE CACHING
+// =======================================================
 builder.Services.AddResponseCaching();
 
-
 // =======================================================
-//   BUILD APP
+//  BUILD APP
 // =======================================================
 var app = builder.Build();
 
 // =======================================================
-//   GLOBAL MIDDLEWARE PIPELINE 
+//  GLOBAL MIDDLEWARE PIPELINE
 // =======================================================
-//----------Early Middleware(pre routing)
-app.UseHttpsRedirection();
-app.UseRateLimiter();           //Rate Limiter
-app.UseMiddleware<CorrelationIdMiddleware>();
-app.UseMiddleware<LogEnrichmentMiddleware>();
-app.UseResponseCaching();  
-app.UseHttpMetrics();    
 
-//-------Routing-------
-app.UseRouting();               
-if (!app.Environment.IsDevelopment() && Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER") != "true")
-{
-    app.UseHttpsRedirection();
-}
-
-//-------Auth/Auth-----
-app.UseAuthentication();
-app.UseAuthorization();
-
-// ----------------------------------------------
-//      CUSTOM REQUEST LOGGING
-// ----------------------------------------------
-app.UseCustomRequestLogging(); 
-
-// ----------------------------------------------
-// Prometheus scraping endpoint
-// ----------------------------------------------
-app.MapPrometheusScrapingEndpoint();
-
-// add caching middleware (headers + middleware)
-app.Use(async (context, next) =>
-{
-    context.Response.GetTypedHeaders().CacheControl =
-        new Microsoft.Net.Http.Headers.CacheControlHeaderValue()
-        {
-            Public = true,
-            MaxAge = TimeSpan.FromSeconds(30) //lifetime
-        };
-    await next();
-});
-
-// =======================================================
-//   SWAGGER (static assets)
-// =======================================================
+// Swagger (Dev only if you want; here enabled always)
 app.UseSwagger();
-app.UseSwaggerUI(c => 
+app.UseSwaggerUI(c =>
 {
     c.SwaggerEndpoint("/swagger/v1/swagger.json", "SmartHome Device Service API v1");
 });
 
-//----- endpoint route selection starts MVC-----
+// Early middleware
+app.UseHttpsRedirection();
+
+app.UseRateLimiter(); // rate limiting
+app.UseResponseCaching();
+
+// Custom correlation + logging middleware
+app.UseMiddleware<CorrelationIdMiddleware>();
+app.UseMiddleware<LogEnrichmentMiddleware>();
+
+// Route matching
+app.UseRouting();
+
+// Auth
+app.UseAuthentication();
+app.UseAuthorization();
+
+// Custom request logging
+app.UseCustomRequestLogging();
+
+// Extra caching headers middleware
+app.Use(async (context, next) =>
+{
+    context.Response.GetTypedHeaders().CacheControl =
+        new Microsoft.Net.Http.Headers.CacheControlHeaderValue
+        {
+            Public = true,
+            MaxAge = TimeSpan.FromSeconds(30)
+        };
+
+    await next();
+});
+
+// Prometheus scraping endpoint (for metrics)
+app.MapPrometheusScrapingEndpoint();
+
+// Controllers
 app.MapControllers();
 
 // =======================================================
-//   HEALTH CHECKS
+//  HEALTH CHECK ENDPOINTS
 // =======================================================
 app.MapHealthChecks("/health");
 app.MapHealthChecks("/health/live", new HealthCheckOptions
@@ -381,7 +330,8 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
         var result = JsonSerializer.Serialize(new
         {
             status = report.Status.ToString(),
-            checks = report.Entries.Select(e => new {
+            checks = report.Entries.Select(e => new
+            {
                 name = e.Key,
                 status = e.Value.Status.ToString(),
                 exception = e.Value.Exception?.Message,
@@ -394,8 +344,8 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
 });
 
 // =========================================
-// ENSURE DATABASE MIGRATIONS RUN WITH RETRY
-// ==========================================
+//  ENSURE DATABASE MIGRATIONS RUN WITH RETRY
+// =========================================
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<DeviceDbContext>();
