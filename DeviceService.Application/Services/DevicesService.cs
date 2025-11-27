@@ -10,7 +10,7 @@ using DeviceService.Domain.Entities;
 
 namespace DeviceService.Application.Services
 {
-    public class DevicesService
+    public class DevicesService : IDevicesService
     {
         private readonly IDeviceRepository _repo;
 
@@ -33,12 +33,6 @@ namespace DeviceService.Application.Services
             return _repo.GetByIdAsync(id)
                 .ContinueWith(t => t.Result?.ToDto(), ct);
         }
-
-        // public async Task<IEnumerable<DeviceDto>> GetAllAsync(CancellationToken ct)
-        // {
-        //     var devices = await _repo.GetAllAsync();
-        //     return devices.Select(d => d.ToDto());
-        // }
 
         public async Task<PaginatedResult<Device>> GetPagedAsync(
             int page,
