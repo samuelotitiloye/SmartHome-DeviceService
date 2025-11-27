@@ -119,7 +119,7 @@ builder.Services.AddSingleton<JwtTokenService>();
 //  DEPENDENCY INJECTION (DOMAIN + APP)
 // ========================================
 builder.Services.AddScoped<IDeviceRepository, DeviceRepository>();
-builder.Services.AddScoped<IDeviceService, DevicesService>();
+builder.Services.AddScoped<IDevicesService, DevicesService>();
 
 
 builder.Services.AddMediatR(cfg =>
@@ -192,7 +192,7 @@ builder.Services.AddSwaggerGen(c =>
 //  HEALTH CHECKS
 // ===========================================
 builder.Services.AddHealthChecks()
-    .AddNpgsql(connectionString);
+    .AddNpgSql(connectionString);
 
 // ============================================
 //  OpenTelemetry: METRICS ONLY (Prometheus)
