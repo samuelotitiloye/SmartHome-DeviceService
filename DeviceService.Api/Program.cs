@@ -119,8 +119,8 @@ builder.Services.AddSingleton<JwtTokenService>();
 //  DEPENDENCY INJECTION (DOMAIN + APP)
 // ========================================
 builder.Services.AddScoped<IDeviceRepository, DeviceRepository>();
-builder.Services.AddScoped<IDevicesService, DevicesService>();
-builder.Services.AddScoped<DevicesService>(); // optional: only if you inject concrete type
+builder.Services.AddScoped<IDeviceService, DevicesService>();
+
 
 builder.Services.AddMediatR(cfg =>
     cfg.RegisterServicesFromAssembly(typeof(UpdateDeviceCommand).Assembly));
@@ -188,15 +188,15 @@ builder.Services.AddSwaggerGen(c =>
     c.EnableAnnotations();
 });
 
-// =======================================================
+// ===========================================
 //  HEALTH CHECKS
-// =======================================================
+// ===========================================
 builder.Services.AddHealthChecks()
-    .AddNpgsql(connectionString, name: "postgres");
+    .AddNpgsql(connectionString, "postgres");
 
-// =======================================================
+// ============================================
 //  OpenTelemetry: METRICS ONLY (Prometheus)
-// =======================================================
+// ============================================
 builder.Services.AddOpenTelemetry()
     .ConfigureResource(resource => resource.AddService("SmartHome-DeviceService"))
     .WithMetrics(metrics =>
