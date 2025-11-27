@@ -12,6 +12,7 @@ using DeviceService.Application.Common.Models;
 using DeviceService.Application.Devices.Models;
 using DeviceService.Application.Mappings;
 using Swashbuckle.AspNetCore.Annotations;
+using DeviceService.Application.Interfaces;
 
 
 
@@ -26,12 +27,12 @@ namespace DeviceService.Api.Controllers
     [Tags("Devices")]
     public class DevicesController : ControllerBase
     {
-        private readonly DevicesService _service;
+        private readonly IDevicesService _service;
         private readonly ILogger<DevicesController> _logger;
         private readonly IMediator _mediator;
 
         public DevicesController(
-            DevicesService service,
+            IDevicesService service,
             ILogger<DevicesController> logger,
             IMediator mediator)
         {

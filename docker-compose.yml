@@ -1,38 +1,72 @@
 services:
+
+  #===============================
+  # DeviceService API CONTAINER
+  # ===============================
   deviceservice.api:
+    container_name: deviceservice.api
     build:
       context: .
       dockerfile: DeviceService.Api/Dockerfile
-    container_name: deviceservice.api
     depends_on:
       postgres:
         condition: service_healthy
     ports:
       - "8080:8080"
+
+    env_file:
+      .env.docker
+
+    # ========================
+    # RUNTIME ENV
+    # ========================
     environment:
-      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT}
-      DB_USER: ${DB_USER}
-      DB_PASSWORD: ${DB_PASSWORD}
-      ConnectionStrings__DefaultConnection: "Host=postgres;Database=${POSTGRES_DB};Username=${DB_USER};Password=${DB_PASSWORD}"
+      ASPNETCORE_ENVIRONMENT: Development
+      SEED_ENABLED: "true"
+
+    # ========================
+    # DB (maps to DBSETTINGS)
+    # ========================
+      Database__Host: postgres
+      Database__Port: "5432"
+      Database__Database: smarthome_devices
+      Database__Username: postgres
+      Database__Password: ${DB_PASSWORD}
+
+      # ========================
+      # JWT
+      # ========================
+      JWT_SECRET: ${JWT_SECRET:-SuperUltraSecureLocalJwtKey_1234567890_ABC!!}
+      JWT_ISSUER: ${JWT_ISSUER:-shapi-dev}
+      JWT_AUDIENCE: ${JWT_AUDIENCE:-shapi-dev}
+
     healthcheck:
-      test: ["CMD", "wget", "-q0-", "http://localhost:8080/health/ready"]
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/health/ready"]
       interval: 10s
       retries: 3
+      timeout: 5s
 
+  # ===============================
+  # PostgreSQL Database Container
+  # ===============================
   postgres:
     image: postgres:16
     container_name: deviceservice.db
     restart: always
+
     environment:
-      POSTGRES_USER: ${DB_USER}
+      POSTGRES_USER: ${DB_USER:-postgres}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
-    ports: 
+      POSTGRES_DB: ${POSTGRES_DB:-smarthome_devices}
+
+    ports:
       - "5433:5432"
+
     volumes:
       - pgdata:/var/lib/postgresql/data
+
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${POSTGRES_DB}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${POSTGRES_DB:-smarthome_devices}"]
       interval: 5s
       timeout: 3s
       retries: 5

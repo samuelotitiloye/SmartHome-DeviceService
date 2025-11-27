@@ -30,17 +30,25 @@ using Serilog;
 using CorrelationId;
 using CorrelationId.DependencyInjection;
 using HealthChecks.NpgSql;
-
+using DeviceService.Infrastructure.Seed;
+using DeviceService.Api.Settings;
 
 // =============
 //  BUILDER
 // =============
 var builder = WebApplication.CreateBuilder(args);
 
-// ========================================
-//  LOAD ENVIRONMENT VARIABLES
-// ========================================
-builder.Configuration.AddEnvironmentVariables();
+// =============================================
+// CONFIGURATION SOURCES
+// =============================================
+builder.Configuration
+    .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+    .AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json", optional: true)
+    .AddUserSecrets<Program>(optional: true)
+    .AddEnvironmentVariables()
+    .AddIniFile(".env", optional: true)
+    .AddIniFile(".env.development.local", optional: true)
+    .AddIniFile(".env.docker", optional: true);
 
 // ========================================
 //  SERILOG CONFIGURATION (SIMPLIFIED)
@@ -54,7 +62,7 @@ builder.Host.UseSerilog((ctx, lc) =>
 });
 
 // ========================================
-//  DB CONFIG (ENV VARS)
+// ENV HELPER (GLOBAL SCOPE)
 // ========================================
 string GetEnv(string key, bool required = true)
 {
@@ -66,14 +74,18 @@ string GetEnv(string key, bool required = true)
     return value ?? "";
 }
 
-var dbHost = GetEnv("DB_HOST");
-var dbPort = GetEnv("DB_PORT");
-var dbUser = GetEnv("DB_USERNAME");
-var dbPass = GetEnv("DB_PASSWORD");
-var dbName = GetEnv("DB_DATABASE");
+// ========================================
+//  DB CONFIG/CONNECTION
+// ========================================
+var dbSettings = builder.Configuration.GetSection("Database").Get<DatabaseSettings>()
+    ?? throw new InvalidOperationException("Database configuration missing");
 
-var connectionString =
-    $"Host={dbHost};Port={dbPort};Database={dbName};Username={dbUser};Password={dbPass};";
+var connectionString = 
+    $"Host={dbSettings.Host};" + 
+    $"Port={dbSettings.Port};" + 
+    $"Database={dbSettings.Database};" + 
+    $"Username={dbSettings.Username};" + 
+    $"Password={dbSettings.Password};"; 
 
 // ========================================
 //  EF CORE (PostgreSQL + Retry)
@@ -89,14 +101,31 @@ builder.Services.AddDbContext<DeviceDbContext>(options =>
     });
 });
 
-// =======================================================
-//  JWT CONFIGURATION (ENV VARS)
-// =======================================================
-var jwtIssuer = GetEnv("JWT_ISSUER");
-var jwtAudience = GetEnv("JWT_AUDIENCE");
-var jwtSecret = GetEnv("JWT_SECRET");
+//===============
+// SEED DATA
+//===============
+builder.Services.AddScoped<SeedData>();
 
-var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret));
+// ========================================
+// JWT CONFIG 
+// ========================================
+string jwtIssuer;
+string jwtAudience;
+string jwtSecret;
+
+if (builder.Environment.IsDevelopment())
+{
+    // MINIMUM 32 characters (256 bits)
+    jwtIssuer = "local-dev-issuer";
+    jwtAudience = "local-dev-audience";
+    jwtSecret = "super-secret-local-dev-key-1234567890!!!";
+}
+else
+{
+    jwtIssuer = GetEnv("JWT_ISSUER");
+    jwtAudience = GetEnv("JWT_AUDIENCE");
+    jwtSecret = GetEnv("JWT_SECRET");
+}
 
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -104,24 +133,39 @@ builder.Services
     {
         options.TokenValidationParameters = new TokenValidationParameters
         {
-            ValidateIssuer = true,
             ValidIssuer = jwtIssuer,
-            ValidateAudience = true,
             ValidAudience = jwtAudience,
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = false,
             ValidateIssuerSigningKey = true,
-            IssuerSigningKey = signingKey,
-            ValidateLifetime = true
+            IssuerSigningKey = new SymmetricSecurityKey(
+                Encoding.UTF8.GetBytes(jwtSecret))
         };
     });
 
-// Register TokenService for AuthController
+builder.Services.AddAuthorization();
+
+// =======================================================
+//  JWT OPTIONS FOR TOKEN GENERATOR
+// =======================================================
+builder.Services.Configure<JwtOptions>(opts =>
+{
+    opts.Issuer = jwtIssuer;
+    opts.Audience = jwtAudience;
+    opts.Secret = jwtSecret;
+    opts.ExpiryMinutes = 60;
+});
+
 builder.Services.AddSingleton<JwtTokenService>();
+
 
 // ========================================
 //  DEPENDENCY INJECTION (DOMAIN + APP)
 // ========================================
 builder.Services.AddScoped<IDeviceRepository, DeviceRepository>();
 builder.Services.AddScoped<IDevicesService, DevicesService>();
+builder.Services.AddScoped<DevicesService>();
 
 
 builder.Services.AddMediatR(cfg =>
@@ -377,6 +421,20 @@ using (var scope = app.Services.CreateScope())
 
             await Task.Delay(delay);
         }
+    }
+}
+
+//=====================
+// TRIGGER SEED DATA
+//======================
+var seedEnabled = Environment.GetEnvironmentVariable("SEED_ENABLED");
+
+if (seedEnabled?.ToLower() == "true" )
+{
+    using (var scope = app.Services.CreateScope())
+    {
+        var seeder = scope.ServiceProvider.GetRequiredService<SeedData>();
+        await seeder.SeedAsync();
     }
 }
 
