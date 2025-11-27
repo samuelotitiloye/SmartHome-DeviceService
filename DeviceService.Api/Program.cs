@@ -29,6 +29,8 @@ using OpenTelemetry.Resources;
 using Serilog;
 using CorrelationId;
 using CorrelationId.DependencyInjection;
+using HealthChecks.NpgSql;
+
 
 // =============
 //  BUILDER
