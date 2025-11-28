@@ -1,0 +1,38 @@
+{
+    "id": null,
+    "uid": "deviceservice-overview",
+    "title": "DeviceService Overview",
+    "timezone": "browser",
+    "$schemaVersion": 36,
+    "version": 1,
+
+    "ediable": "true",
+    "panels": [
+        {
+        "type": "graph",
+        "title": "HTTP Requests / Second",
+        "targets": [
+            {
+            "expr": "rate(http_server_request_duration_seconds_count{}[1m])"
+            }
+        ],
+        "gridPos": { "x": 0, "y": 0, "w": 12, "h": 6 }
+        },
+        {
+        "type": "graph",
+        "title": "Latency p95",
+        "targets": [
+            {
+            "expr": "histogram_quantile(0.95, sum(rate(http_server_request_duration_seconds_bucket[5m])) by (le))"
+            }
+        ],
+        "gridPos": { "x": 12, "y": 0, "w": 12, "h": 6 }
+        }
+    ],
+    "templating": {
+        "list": []
+    },
+   "annotations": {
+        "list": []
+   }
+}

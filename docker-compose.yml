@@ -12,10 +12,9 @@ services:
       postgres:
         condition: service_healthy
     ports:
-      - "8080:8080"
+    - "8080:8080"
 
-    env_file:
-      .env.docker
+    env_file: .env.docker
 
     # ========================
     # RUNTIME ENV
@@ -24,9 +23,9 @@ services:
       ASPNETCORE_ENVIRONMENT: Development
       SEED_ENABLED: "true"
 
-    # ========================
-    # DB (maps to DBSETTINGS)
-    # ========================
+      # ========================
+      # DB (maps to DBSETTINGS)
+      # ========================
       Database__Host: postgres
       Database__Port: "5432"
       Database__Database: smarthome_devices
@@ -41,10 +40,13 @@ services:
       JWT_AUDIENCE: ${JWT_AUDIENCE:-shapi-dev}
 
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:8080/health/ready"]
+      test: [ "CMD", "wget", "-qO-", "http://localhost:8080/health/ready" ]
       interval: 10s
       retries: 3
       timeout: 5s
+
+    networks:
+    - smarthome
 
   # ===============================
   # PostgreSQL Database Container
@@ -60,17 +62,25 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-smarthome_devices}
 
     ports:
-      - "5433:5432"
+    - "5433:5432"
 
     volumes:
-      - pgdata:/var/lib/postgresql/data
+    - pgdata:/var/lib/postgresql/data
 
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${POSTGRES_DB:-smarthome_devices}"]
+      test: [ "CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${POSTGRES_DB:-smarthome_devices}" ]
       interval: 5s
       timeout: 3s
       retries: 5
       start_period: 5s
 
+    networks:
+    - smarthome
+
 volumes:
   pgdata:
+
+
+networks:
+  smarthome:
+    external: true
