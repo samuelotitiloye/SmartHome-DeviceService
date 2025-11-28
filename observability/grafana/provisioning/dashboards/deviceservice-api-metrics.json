@@ -1,0 +1,127 @@
+{
+  "id": null,
+  "uid": "deviceservice-api-metrics",
+  "title": "DeviceService – API Metrics",
+  "tags": ["deviceservice", "api", "otel", "metrics"],
+  "timezone": "browser",
+  "schemaVersion": 36,
+  "version": 1,
+  "refresh": "5s",
+  "panels": [
+    {
+      "type": "row",
+      "title": "Traffic",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 }
+    },
+
+    {
+      "type": "stat",
+      "title": "Requests per Second (RPS)",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(http_server_request_duration_seconds_count[1m]))"
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "value"
+      },
+      "gridPos": { "h": 6, "w": 8, "x": 0, "y": 1 }
+    },
+
+    {
+      "type": "stat",
+      "title": "2xx / 4xx / 5xx Count",
+      "datasource": "Prometheus",
+      "targets": [
+        { "refId": "A", "expr": "sum(rate(http_server_request_duration_seconds_count{http_response_status_code=~\"2..\"}[1m]))" },
+        { "refId": "B", "expr": "sum(rate(http_server_request_duration_seconds_count{http_response_status_code=~\"4..\"}[1m]))" },
+        { "refId": "C", "expr": "sum(rate(http_server_request_duration_seconds_count{http_response_status_code=~\"5..\"}[1m]))" }
+      ],
+      "gridPos": { "h": 6, "w": 8, "x": 8, "y": 1 }
+    },
+
+    {
+      "type": "gauge",
+      "title": "Error Rate (%)",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(sum(rate(http_server_request_duration_seconds_count{http_response_status_code=~\"4..|5..\"}[2m]))) / (sum(rate(http_server_request_duration_seconds_count[2m]))) * 100"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 5 },
+              { "color": "red", "value": 15 }
+            ]
+          }
+        }
+      },
+      "gridPos": { "h": 6, "w": 8, "x": 16, "y": 1 }
+    },
+
+    {
+      "type": "row",
+      "title": "Latency",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 8 }
+    },
+
+    {
+      "type": "timeseries",
+      "title": "p90 Latency (ms)",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.90, sum by (le) (rate(http_server_request_duration_seconds_bucket[1m]))) * 1000"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "ms" } },
+      "gridPos": { "h": 6, "w": 12, "x": 0, "y": 9 }
+    },
+
+    {
+      "type": "timeseries",
+      "title": "p99 Latency (ms)",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(http_server_request_duration_seconds_bucket[1m]))) * 1000"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "ms" } },
+      "gridPos": { "h": 6, "w": 12, "x": 12, "y": 9 }
+    },
+
+    {
+      "type": "row",
+      "title": "Health / System",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 16 }
+    },
+
+    {
+      "type": "stat",
+      "title": "Health Check Status (Ready)",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max_over_time(up{job=\"deviceservice\"}[2m])"
+        }
+      ],
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 17 }
+    }
+  ]
+}

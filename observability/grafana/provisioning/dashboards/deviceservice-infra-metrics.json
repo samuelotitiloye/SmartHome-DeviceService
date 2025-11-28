@@ -1,0 +1,105 @@
+{
+  "id": null,
+  "uid": "deviceservice-infra-metrics",
+  "title": "DeviceService – Infrastructure Metrics",
+  "tags": ["deviceservice", "infra", "cadvisor", "prometheus"],
+  "timezone": "browser",
+  "schemaVersion": 36,
+  "version": 1,
+  "refresh": "5s",
+  "panels": [
+    {
+      "type": "row",
+      "title": "DeviceService (Focused)",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 }
+    },
+
+    {
+      "type": "timeseries",
+      "title": "CPU Usage (%) – DeviceService",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rate(container_cpu_usage_seconds_total{image=\"smarthome-deviceservice-deviceservice.api\", cpu=\"total\"}[1m]) * 100"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "percent" } },
+      "gridPos": { "h": 6, "w": 12, "x": 0, "y": 1 }
+    },
+
+    {
+      "type": "timeseries",
+      "title": "Memory Usage (MB) – DeviceService",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "container_memory_usage_bytes{image=\"smarthome-deviceservice-deviceservice.api\"} / 1024 / 1024"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "megabytes" } },
+      "gridPos": { "h": 6, "w": 12, "x": 12, "y": 1 }
+    },
+
+    {
+      "type": "timeseries",
+      "title": "Network RX/TX (bytes/sec) – DeviceService",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "refId": "RX",
+          "expr": "rate(container_network_receive_bytes_total{image=\"smarthome-deviceservice-deviceservice.api\"}[1m])"
+        },
+        {
+          "refId": "TX",
+          "expr": "rate(container_network_transmit_bytes_total{image=\"smarthome-deviceservice-deviceservice.api\"}[1m])"
+        }
+      ],
+      "gridPos": { "h": 6, "w": 24, "x": 0, "y": 7 }
+    },
+
+    {
+      "type": "row",
+      "title": "All Containers (Cluster View)",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 14 }
+    },
+
+    {
+      "type": "timeseries",
+      "title": "CPU Usage (%) – All Containers",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (image) (rate(container_cpu_usage_seconds_total{cpu=\"total\"}[1m]) * 100)"
+        }
+      ],
+      "gridPos": { "h": 6, "w": 24, "x": 0, "y": 15 }
+    },
+
+    {
+      "type": "timeseries",
+      "title": "Memory Usage (MB) – All Containers",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (image) (container_memory_usage_bytes / 1024 / 1024)"
+        }
+      ],
+      "gridPos": { "h": 6, "w": 24, "x": 0, "y": 21 }
+    },
+
+    {
+      "type": "timeseries",
+      "title": "Network RX/TX – All Containers",
+      "datasource": "Prometheus",
+      "targets": [
+        { "refId": "RX", "expr": "sum by (image) (rate(container_network_receive_bytes_total[1m]))" },
+        { "refId": "TX", "expr": "sum by (image) (rate(container_network_transmit_bytes_total[1m]))" }
+      ],
+      "gridPos": { "h": 6, "w": 24, "x": 0, "y": 27 }
+    }
+  ]
+}

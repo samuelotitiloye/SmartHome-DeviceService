@@ -1,0 +1,345 @@
+{
+  "id": null,
+  "uid": "deviceservice-unified",
+  "title": "DeviceService – Unified API & Infrastructure Metrics",
+  "tags": ["deviceservice", "unified", "api", "infra", "prometheus", "cadvisor"],
+  "timezone": "browser",
+  "schemaVersion": 36,
+  "version": 1,
+  "refresh": "10s",
+  "panels": [
+    {
+      "type": "row",
+      "title": "API Traffic",
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 }
+    },
+    {
+      "id": 1,
+      "title": "Requests per Second (RPS)",
+      "type": "stat",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(http_server_request_duration_seconds_count[1m]))"
+        }
+      ],
+      "options": {
+        "orientation": "auto",
+        "colorMode": "value",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "req/s"
+        }
+      },
+      "gridPos": { "h": 6, "w": 8, "x": 0, "y": 1 }
+    },
+    {
+      "id": 2,
+      "title": "2xx / 4xx / 5xx Count (1m rate)",
+      "type": "stat",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(http_server_request_duration_seconds_count{http_response_status_code=~\"2..\"}[1m]))",
+          "legendFormat": "2xx"
+        },
+        {
+          "refId": "B",
+          "expr": "sum(rate(http_server_request_duration_seconds_count{http_response_status_code=~\"4..\"}[1m]))",
+          "legendFormat": "4xx"
+        },
+        {
+          "refId": "C",
+          "expr": "sum(rate(http_server_request_duration_seconds_count{http_response_status_code=~\"5..\"}[1m]))",
+          "legendFormat": "5xx"
+        }
+      ],
+      "options": {
+        "orientation": "auto",
+        "colorMode": "value",
+        "graphMode": "area",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "req/s"
+        }
+      },
+      "gridPos": { "h": 6, "w": 8, "x": 8, "y": 1 }
+    },
+    {
+      "id": 3,
+      "title": "Error Rate (%)",
+      "type": "gauge",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(\n  sum(rate(http_server_request_duration_seconds_count{http_response_status_code=~\"4..|5..\"}[5m]))\n) /\n(\n  sum(rate(http_server_request_duration_seconds_count[5m]))\n) * 100"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "max": 100,
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 5 },
+              { "color": "red", "value": 15 }
+            ]
+          }
+        }
+      },
+      "gridPos": { "h": 6, "w": 8, "x": 16, "y": 1 }
+    },
+
+    {
+      "type": "row",
+      "title": "Latency",
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 7 }
+    },
+    {
+      "id": 4,
+      "title": "p90 Latency (ms)",
+      "type": "timeseries",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.90, sum by (le) (rate(http_server_request_duration_seconds_bucket[1m]))) * 1000"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "color": { "mode": "palette-classic" }
+        }
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 }
+    },
+    {
+      "id": 5,
+      "title": "p99 Latency (ms)",
+      "type": "timeseries",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(http_server_request_duration_seconds_bucket[1m]))) * 1000"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "color": { "mode": "palette-classic" }
+        }
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 }
+    },
+
+    {
+      "type": "row",
+      "title": "DeviceService (Focused)",
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 16 }
+    },
+    {
+      "id": 6,
+      "title": "CPU Usage (%) – DeviceService",
+      "type": "timeseries",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(container_cpu_usage_seconds_total{image=\"smarthome-deviceservice-deviceservice.api\", cpu=\"total\"}[1m])) * 100"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "color": { "mode": "palette-classic" }
+        }
+      },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 17 }
+    },
+    {
+      "id": 7,
+      "title": "Memory Usage (MB) – DeviceService",
+      "type": "timeseries",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(container_memory_usage_bytes{image=\"smarthome-deviceservice-deviceservice.api\"}) / 1024 / 1024"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "megabytes",
+          "color": { "mode": "palette-classic" }
+        }
+      },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 17 }
+    },
+    {
+      "id": 8,
+      "title": "Network RX / TX (bytes/sec) – DeviceService",
+      "type": "timeseries",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(container_network_receive_bytes_total{image=\"smarthome-deviceservice-deviceservice.api\"}[1m]))",
+          "legendFormat": "rx"
+        },
+        {
+          "refId": "B",
+          "expr": "sum(rate(container_network_transmit_bytes_total{image=\"smarthome-deviceservice-deviceservice.api\"}[1m]))",
+          "legendFormat": "tx"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "Bps",
+          "color": { "mode": "palette-classic" }
+        }
+      },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 17 }
+    },
+
+    {
+      "type": "row",
+      "title": "All Containers (Cluster View)",
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 25 }
+    },
+    {
+      "id": 9,
+      "title": "CPU Usage (%) – All Containers",
+      "type": "timeseries",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (image) (rate(container_cpu_usage_seconds_total{cpu=\"total\"}[1m])) * 100",
+          "legendFormat": "{{image}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "color": { "mode": "palette-classic" }
+        }
+      },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 26 }
+    },
+    {
+      "id": 10,
+      "title": "Memory Usage (MB) – All Containers",
+      "type": "timeseries",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (image) (container_memory_usage_bytes) / 1024 / 1024",
+          "legendFormat": "{{image}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "megabytes",
+          "color": { "mode": "palette-classic" }
+        }
+      },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 26 }
+    },
+    {
+      "id": 11,
+      "title": "Network RX / TX (bytes/sec) – All Containers",
+      "type": "timeseries",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (image) (rate(container_network_receive_bytes_total[1m]))",
+          "legendFormat": "{{image}} rx"
+        },
+        {
+          "refId": "B",
+          "expr": "sum by (image) (rate(container_network_transmit_bytes_total[1m]))",
+          "legendFormat": "{{image}} tx"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "Bps",
+          "color": { "mode": "palette-classic" }
+        }
+      },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 26 }
+    },
+
+    {
+      "type": "row",
+      "title": "PostgreSQL Container",
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 34 }
+    },
+    {
+      "id": 12,
+      "title": "CPU Usage (%) – Postgres",
+      "type": "timeseries",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(container_cpu_usage_seconds_total{image=~\"postgres.*\", cpu=\"total\"}[1m])) * 100"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "color": { "mode": "palette-classic" }
+        }
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 35 }
+    },
+    {
+      "id": 13,
+      "title": "Memory Usage (MB) – Postgres",
+      "type": "timeseries",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(container_memory_usage_bytes{image=~\"postgres.*\"}) / 1024 / 1024"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "megabytes",
+          "color": { "mode": "palette-classic" }
+        }
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 35 }
+    }
+  ]
+}
