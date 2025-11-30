@@ -240,6 +240,17 @@ builder.Services.AddSwaggerGen(c =>
 builder.Services.AddHealthChecks()
     .AddNpgSql(connectionString, name: "postgres");
 
+
+// =======================================
+//   REDIS CACHING
+// =======================================
+builder.Services.AddStackExchangeRedisCache(optoions => 
+{
+    options.Configuration = builder.Configuration.GetConnectionString("Redis");
+    options.InstanceName: "DeviceService"
+})
+builder.Services.AddSingleton<RedisCacheService>();
+
 // ============================================
 //  OpenTelemetry: METRICS ONLY (Prometheus)
 // ============================================

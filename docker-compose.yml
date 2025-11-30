@@ -77,9 +77,9 @@ services:
     networks:
     - smarthome
 
+
 volumes:
   pgdata:
-
 
 networks:
   smarthome:

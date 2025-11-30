@@ -1,87 +1,124 @@
 using System.Diagnostics;
-using DeviceService.Application.Devices.Dto; 
-using DeviceService.Application.Mappings; 
-using DeviceService.Application.Interfaces; 
-using DeviceService.Application.Devices.Queries; 
-using DeviceService.Application.Interfaces; 
-using DeviceService.Application.Common.Models; 
-using DeviceService.Application.Devices.Models; 
-using DeviceService.Domain.Entities; 
+using DeviceService.Application.Devices.Dto;
+using DeviceService.Application.Mappings;
+using DeviceService.Application.Interfaces;
+using DeviceService.Application.Common.Models;
+using DeviceService.Application.Devices.Models;
+using DeviceService.Infrastructure.Cache;
+using Microsoft.Extensions.Logging;
+
 
 namespace DeviceService.Application.Services
 {
     public class DevicesService : IDevicesService
     {
         private readonly IDeviceRepository _repo;
+        private readonly RedisCacheService cache;
+        private readonly ILogger<DevicesService> _logger;
 
-        public DevicesService(IDeviceRepository repo)
+        public DevicesService(IDeviceRepository _repo, RedisCacheService cache, ILogger<DevicesService> _logger )
         {
             _repo = repo;
+            _cache = cache;
+            _logger = logger;
         }
 
-        public async Task<DeviceDto> RegisterDeviceAsync(RegisterDeviceDto dto, CancellationToken ct)
+        //============================================================
+        // GET DEVICE BY ID (Cacheable)
+        // ===========================================================
+        public async Task <DeviceDto?> GetByIdAsync(Guid id, CancellationToken ct)
         {
-            var device = dto.ToEntity();
+            var cacheKey = $"device:{id}";
 
-            await _repo.AddAsync(device);
-
-            return device.ToDto();
-        }
-
-        public Task<DeviceDto?> GetByIdAsync(Guid id, CancellationToken ct)
-        {
-            return _repo.GetByIdAsync(id)
-                .ContinueWith(t => t.Result?.ToDto(), ct);
-        }
-
-        public async Task<PaginatedResult<Device>> GetPagedAsync(
-            int page,
-            int pageSize,
-            string? type,
-            string? location,
-            bool? isOnline,
-            CancellationToken cancellationToken = default)
-        {
-            var pagination = new PaginationParameters(page, pageSize);
-
-            var filter = new DeviceFilter
+            var cached = await _cache.GetAsync<DeviceDto>(cacheKey);
+            if (cached != null)
             {
-                NameContains = null,
-                Location = location,
-                Type = type,
-                IsOnline = isOnline,
-                MinThresholdWatts = null,  // adjust if needed later
-                SortBy = DeviceSortBy.RegisteredAt,
-                SortOrder = SortOrder.Desc
-            };
+                _logger.LogInformation("Redis HIT: {Key}", cacheKey);
+                return cached;
+            }
+            _logger.LogInformation("Redis MISS: {Key}", cacheKey)
 
-            return await _repo.GetDevicesAsync(filter, pagination, cancellationToken);
+            var entity = await _repo.GetByIdAsync(id);
+            if (entity != null)
+            return null;
+
+            var dto = = entity.ToDto();
+
+            await _cache.SetAsync(cacheKey, dto)
+
+            return dto;
         }
 
-        public async Task<PaginatedResult<DeviceDto>> GetDevicesAsync(DeviceFilter filter, PaginationParameters pagination, CancellationToken cancellationToken = default)
+        // ============================================================
+        // GET DEVICES - PAGED WITH FILTERS (Cacheable)
+        // ============================================================
+        public async Task<PaginatedResult<DeviceDto>> GetDevicesAsync(DeviceFilter filter, PaginationParameters pagination, CancellationToken ct = default)
         {
-            using var activity = Telemetry.ActivitySource.StartActivity("DevicesService.GetDevice");
+            using var activity = Telemetry.ActivitySource.StartActivity("DeviceService.GetDevices");
 
-            activity?.SetTag("filter.Type", filter.Type ?? "null");
-            activity?.SetTag("filter.Location", filter.Location ?? "null");
-            activity?.SetTag("filter.isOnline", filter.IsOnline?.ToString() ?? "null");
-            activity?.SetTag("pagination.pageNumber", pagination.PageNumber);
-            activity?.SetTag("pagination.pageSize", pagination.PageSize);
+            var cacheKey = $"devices:{pagianation.PageNumber}:{pagianation.PageSize}:{filter.Type}:{filter.Location}:{filter.IsOnline}";
 
-            var result = await _repo.GetDevicesAsync(filter, pagination);
+            var cached = await _cache.GetAsync<PaginatedResult<DeviceDto>>(cacheKey);
+            if (cached != null)
+            {
+                _logger.LogInformation("Redis HIT: {Key}", cacheKey);
+                activity?.SetTag("cache.hit", true);
+                return cached;
+            }
 
-            activity?.SetTag("result.count", result.Items.Count);
+            _logger.LogInformation("Redis MISS: {Key}", cacheKey);
+            activity?.SetTag("cache.hit", false);
 
-            var dtoItems = result.Items
-                .Select(d => d.ToDto())
-                .ToList();
+            var result = await _repo.GetDevicesAsync(filter, pagination, ct);
 
-            return new PaginatedResult<DeviceDto>(
+            var dtoItems = result.Items.Select(x => x.ToDto()).ToList();
+
+            var dtoResult = new PaginatedResult<DeviceDtol>(
                 dtoItems,
                 result.TotalCount,
-                result.PageNumber,
-                result.PageSize
+                pagianation.PageNumber,
+                pagination.PageSize
             );
+
+            await _cache.SetAsync(casheKey, dtoResult);
+
+            return dtoResult;
+        }
+
+
+        // ============================================================
+        // REGISTER DEVICE (Called from Controller, NOT MediatR)
+        // No caching needed here
+        // ============================================================
+        public async Task<DeviceDto> RegisterDeviceAsync(RegisterDeviceDto dto, CancellationToken ct)
+        {
+            var entity = dto.ToEntity();
+
+            await _repo.AddAsync(entity);
+
+            // invalidate cache for list endpoints
+            await InvalidateDeviceListCache();
+            await _cache.RemoveAsync($"device:{entity.Id}");
+
+            return entity.ToDto();
+        }
+
+
+        // ============================================================
+        // INTERNAL CACHE INVALIDATION HELPERS
+        // ============================================================
+        private async Task InvalidateDeviceListCache()
+        {
+            //basic invalidation for now
+            //later: upgrade to SCAN-DEL pattern?
+            for (int page = 1; page <=5; page++)
+            {
+                var keyPrefix = $"devices:{page}:";
+                await _cache.RemoveAsync(keyPrefix);
+            }
         }
     }
+        
 }
+
+        
