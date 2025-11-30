@@ -36,6 +36,27 @@ services:
     networks:
     - smarthome
 
+  alertManager:
+    image: prom/alertmanager:v0.27.0
+    container_name: alertManager
+    volumes:
+    - ./observability/alertmanager/alermanager.yml:/etc/alertmanager/alertmanager.yml
+    command:
+    - "--config.file=/etc/alertmanager/alertmanager.yml"
+    ports:
+    - "9093:9093"
+    networks:
+    - smarthome
+
+  mailhog:
+    image: mailhog/mailhog:v1.0.1
+    container_name: mailhog
+    ports:
+    - "8025:8025"
+    - "1025:1025"
+    networks:
+    - smarthome
+
   cadvisor:
     image: gcr.io/cadvisor/cadvisor:v0.49.1
     container_name: cadvisor

@@ -1,0 +1,52 @@
+global:
+  resolve_timeout: 5m
+
+# Default SMTP settings (Mailhog is local dev target)
+  smtp_smarthost: 'mailhog:1025'
+  smtp_from: 'alerts@smarthome.local'
+  smtp_require_tls: false
+
+route: 
+  group_by: ['alertname', 'service']
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 1h
+  receiver: 'slack-notifications'
+  routes:
+ # Fan-out to Mailhog + Gmail too
+  - receiver: 'mailhog-notifications'
+    continue: true
+  - receiver: 'gmail-notifications'
+    continue: true
+
+receivers:
+# Slack receiver
+  - name: 'slack-notifications'
+    slack_configs: 
+    - api_url: '${SLACK_WEBHOOK_URL}'
+      channel: '${SLACK_CHANNEL}'
+      send_resolved: true
+      title: '{{ .CommonAnnotations.summary }}'
+      text: |
+          *{{ .CommonAnnotations.summary }}*
+          {{ .CommonAnnotations.description }}
+          *Status:* {{ .Status }}
+          *Starts at:* {{ .StartsAt }}
+          *Labels:* {{ .CommonLabels }}
+
+    # Mailhog dev receiver (local)
+    - name: 'mailhog-notifications'
+      email_configs:
+      - to: 'dev@local.test'
+        send_resolved: true
+
+  # Gmail receiver (real email)
+  - name: 'gmail-notifications'
+    email_configs:
+      - to: '${GMAIL_ALERTS_TO}'
+        from: '${GMAIL_ALERTS_FROM}'
+    smarthost: 'smtp.gmail.com:587'
+    auth_username: '${GMAIL_SMTP_USER}'
+    auth_password: '${GMAIL_SMTP_PASSWORD}'
+    require_tls: true
+    send_resolved: true

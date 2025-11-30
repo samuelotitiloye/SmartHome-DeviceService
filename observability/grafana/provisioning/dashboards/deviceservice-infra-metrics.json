@@ -1,105 +1,134 @@
 {
   "id": null,
   "uid": "deviceservice-infra-metrics",
-  "title": "DeviceService – Infrastructure Metrics",
-  "tags": ["deviceservice", "infra", "cadvisor", "prometheus"],
+  "title": "DeviceService – Infrastructure Metrics (Clean)",
+  "tags": ["deviceservice", "infra", "prometheus"],
   "timezone": "browser",
   "schemaVersion": 36,
   "version": 1,
   "refresh": "5s",
+
   "panels": [
     {
       "type": "row",
-      "title": "DeviceService (Focused)",
+      "title": "API Traffic & Health",
+      "collapsed": false,
       "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 }
     },
 
     {
-      "type": "timeseries",
-      "title": "CPU Usage (%) – DeviceService",
+      "id": 1,
+      "title": "Requests per Second (RPS)",
+      "type": "stat",
       "datasource": "Prometheus",
       "targets": [
         {
           "refId": "A",
-          "expr": "rate(container_cpu_usage_seconds_total{image=\"smarthome-deviceservice-deviceservice.api\", cpu=\"total\"}[1m]) * 100"
+          "expr": "sum(rate(http_server_request_duration_seconds_count[1m]))"
         }
       ],
-      "fieldConfig": { "defaults": { "unit": "percent" } },
-      "gridPos": { "h": 6, "w": 12, "x": 0, "y": 1 }
+      "gridPos": { "h": 5, "w": 8, "x": 0, "y": 1 }
     },
 
     {
-      "type": "timeseries",
-      "title": "Memory Usage (MB) – DeviceService",
+      "id": 2,
+      "title": "2xx / 4xx / 5xx Count (1m rate)",
+      "type": "stat",
       "datasource": "Prometheus",
       "targets": [
         {
           "refId": "A",
-          "expr": "container_memory_usage_bytes{image=\"smarthome-deviceservice-deviceservice.api\"} / 1024 / 1024"
+          "expr": "sum(rate(http_server_request_duration_seconds_count{http_response_status_code=~\"2..\"}[1m]))"
         }
       ],
-      "fieldConfig": { "defaults": { "unit": "megabytes" } },
-      "gridPos": { "h": 6, "w": 12, "x": 12, "y": 1 }
+      "gridPos": { "h": 5, "w": 8, "x": 8, "y": 1 }
     },
 
     {
-      "type": "timeseries",
-      "title": "Network RX/TX (bytes/sec) – DeviceService",
+      "type": "gauge",
+      "title": "Error Rate (%)",
       "datasource": "Prometheus",
       "targets": [
         {
-          "refId": "RX",
-          "expr": "rate(container_network_receive_bytes_total{image=\"smarthome-deviceservice-deviceservice.api\"}[1m])"
-        },
-        {
-          "refId": "TX",
-          "expr": "rate(container_network_transmit_bytes_total{image=\"smarthome-deviceservice-deviceservice.api\"}[1m])"
+          "refId": "A",
+          "expr": "((sum(rate(http_server_request_duration_seconds_count{http_response_status_code=~\"4..|5..\"}[2m])) OR on() vector(0)) / clamp_min(sum(rate(http_server_request_duration_seconds_count[2m])), 0.000001) * 100)"
         }
       ],
-      "gridPos": { "h": 6, "w": 24, "x": 0, "y": 7 }
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 5 },
+              { "color": "red", "value": 15 }
+            ]
+          }
+        }
+      },
+      "gridPos": { "h": 5, "w": 8, "x": 16, "y": 2 }
     },
 
     {
       "type": "row",
-      "title": "All Containers (Cluster View)",
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 14 }
+      "title": "API Latency",
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 6 }
     },
 
     {
+      "id": 4,
+      "title": "p90 Latency (ms)",
       "type": "timeseries",
-      "title": "CPU Usage (%) – All Containers",
       "datasource": "Prometheus",
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (image) (rate(container_cpu_usage_seconds_total{cpu=\"total\"}[1m]) * 100)"
+          "expr": "histogram_quantile(0.90, sum by (le) (rate(http_server_request_duration_seconds_bucket[1m]))) * 1000"
         }
       ],
-      "gridPos": { "h": 6, "w": 24, "x": 0, "y": 15 }
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 7 }
     },
 
     {
+      "id": 5,
+      "title": "p99 Latency (ms)",
       "type": "timeseries",
-      "title": "Memory Usage (MB) – All Containers",
       "datasource": "Prometheus",
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (image) (container_memory_usage_bytes / 1024 / 1024)"
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(http_server_request_duration_seconds_bucket[1m]))) * 1000"
         }
       ],
-      "gridPos": { "h": 6, "w": 24, "x": 0, "y": 21 }
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 7 }
     },
 
     {
-      "type": "timeseries",
-      "title": "Network RX/TX – All Containers",
+      "type": "row",
+      "title": "Health / System",
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 15 }
+    },
+
+    {
+      "id": 6,
+      "title": "Health Check Status (Ready)",
+      "type": "stat",
       "datasource": "Prometheus",
       "targets": [
-        { "refId": "RX", "expr": "sum by (image) (rate(container_network_receive_bytes_total[1m]))" },
-        { "refId": "TX", "expr": "sum by (image) (rate(container_network_transmit_bytes_total[1m]))" }
+        {
+          "refId": "A",
+          "expr": "max_over_time(up{job=\"deviceservice\"}[2m])"
+        }
       ],
-      "gridPos": { "h": 6, "w": 24, "x": 0, "y": 27 }
+      "gridPos": { "h": 6, "w": 12, "x": 0, "y": 16 }
     }
-  ]
+  ],
+
+  "templating": { "list": [] },
+  "annotations": { "list": [] }
 }
