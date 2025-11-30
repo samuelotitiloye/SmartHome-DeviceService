@@ -33,7 +33,7 @@ namespace DeviceService.Application.Devices.Commands.DeleteDevice
                 Log.Warning("Failed to delete device {DeviceId}", request.Id);
                 return false;
             }
-            Log.Information("Device deleted successfully {@Device}", device)
+            Log.Information("Device deleted successfully {@Device}", device);
                 
 
             // ===============================================

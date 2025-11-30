@@ -11,7 +11,7 @@ namespace DeviceService.Application.Devices.Commands.RegisterDevice
         : IRequestHandler<RegisterDeviceCommand, DeviceDto>
     {
         private readonly IDeviceRepository _repo;
-        private readonly RedisCacheService _cache
+        private readonly RedisCacheService _cache;
 
         public RegisterDeviceCommandHandler(IDeviceRepository repo, RedisCacheService cache)
         {

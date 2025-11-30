@@ -31,12 +31,13 @@ namespace DeviceService.Application.Services
             var cacheKey = $"device:{id}";
 
             var cached = await _cache.GetAsync<DeviceDto>(cacheKey);
+
             if (cached != null)
             {
                 _logger.LogInformation("Redis HIT: {Key}", cacheKey);
                 return cached;
             }
-            _logger.LogInformation("Redis MISS: {Key}", cacheKey)
+            _logger.LogInformation("Redis MISS: {Key}", cacheKey);
 
             var entity = await _repo.GetByIdAsync(id);
             if (entity != null)
@@ -44,7 +45,7 @@ namespace DeviceService.Application.Services
 
             var dto = = entity.ToDto();
 
-            await _cache.SetAsync(cacheKey, dto)
+            await _cache.SetAsync(cacheKey, dto);
 
             return dto;
         }
@@ -102,7 +103,6 @@ namespace DeviceService.Application.Services
 
             return entity.ToDto();
         }
-
 
         // ============================================================
         // INTERNAL CACHE INVALIDATION HELPERS
