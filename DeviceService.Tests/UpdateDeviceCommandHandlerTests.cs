@@ -1,15 +1,33 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using DeviceService.Application.Cache;
 using DeviceService.Application.Devices.Commands.UpdateDevice;
 using DeviceService.Application.Devices.Dto;
-using DeviceService.Application.Interfaces;
 using DeviceService.Infrastructure.Repositories;
+using DeviceService.Domain.Entities;
+using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using FluentAssertions;
 using Xunit;
+using Microsoft.Extensions.Caching.Distributed;
+using Moq;
+
 
 public class UpdateDeviceCommandHandlerTests
 {
+    private readonly RedisCacheService _cache;
+
+    public UpdateDeviceCommandHandlerTests()
+    {
+        var memoryCache = new MemoryDistributedCache(
+            Options.Create(new MemoryDistributedCacheOptions())
+        );
+
+        _cache = new RedisCacheService(memoryCache, LoggerFactory.Create(_ => { }).CreateLogger<RedisCacheService>());
+    }
+
     [Fact]
     public async Task Should_Update_Device_Successfully()
     {
@@ -30,7 +48,7 @@ public class UpdateDeviceCommandHandlerTests
 
         await repo.AddAsync(device);
 
-        var handler = new UpdateDeviceCommandHandler(repo);
+        var handler = new UpdateDeviceCommandHandler(repo, _cache);
 
         var command = new UpdateDeviceCommand(
             device.Id,

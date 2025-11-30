@@ -1,14 +1,33 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using DeviceService.Application.Cache;
 using DeviceService.Application.Devices.Commands.DeleteDevice;
 using DeviceService.Domain.Entities;
 using DeviceService.Infrastructure.Repositories;
+using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using FluentAssertions;
 using Xunit;
+using Microsoft.Extensions.Caching.Distributed;
+using Moq;
+
+
 
 public class DeleteDeviceCommandHandlerTests
 {
+    private readonly RedisCacheService _cache;
+
+    public DeleteDeviceCommandHandlerTests()
+    {
+        var memoryCache = new MemoryDistributedCache(
+            Options.Create(new MemoryDistributedCacheOptions())
+        );
+
+        _cache = new RedisCacheService(memoryCache, LoggerFactory.Create(_ => { }).CreateLogger<RedisCacheService>());
+    }
+
     [Fact]
     public async Task Should_Delete_Existing_Device()
     {
@@ -29,7 +48,7 @@ public class DeleteDeviceCommandHandlerTests
 
         await repo.AddAsync(device);
 
-        var handler = new DeleteDeviceCommandHandler(repo);
+        var handler = new DeleteDeviceCommandHandler(repo, _cache);
         var command = new DeleteDeviceCommand(device.Id);
 
         // Act
@@ -43,7 +62,7 @@ public class DeleteDeviceCommandHandlerTests
     public async Task Should_Return_False_When_Device_Not_Found()
     {
         var repo = new InMemoryDeviceRepository();
-        var handler = new DeleteDeviceCommandHandler(repo);
+        var handler = new DeleteDeviceCommandHandler(repo, _cache);
 
         var command = new DeleteDeviceCommand(Guid.NewGuid());
 

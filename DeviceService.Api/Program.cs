@@ -247,8 +247,8 @@ builder.Services.AddHealthChecks()
 builder.Services.AddStackExchangeRedisCache(optoions => 
 {
     options.Configuration = builder.Configuration.GetConnectionString("Redis");
-    options.InstanceName: "DeviceService"
-})
+    options.InstanceName: "DeviceService";
+});
 builder.Services.AddSingleton<RedisCacheService>();
 builder.Services.AddScoped<RedisCacheService>();
 
