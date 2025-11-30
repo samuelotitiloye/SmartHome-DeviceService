@@ -240,11 +240,10 @@ builder.Services.AddSwaggerGen(c =>
 builder.Services.AddHealthChecks()
     .AddNpgSql(connectionString, name: "postgres");
 
-
 // =======================================
 //   REDIS CACHING
 // =======================================
-builder.Services.AddStackExchangeRedisCache(optoions => 
+builder.Services.AddStackExchangeRedisCache(options => 
 {
     options.Configuration = builder.Configuration.GetConnectionString("Redis");
     options.InstanceName: "DeviceService";
