@@ -43,7 +43,7 @@ namespace DeviceService.Application.Services
             if (entity != null)
             return null;
 
-            var dto = = entity.ToDto();
+            var dto = entity.ToDto();
 
             await _cache.SetAsync(cacheKey, dto);
 
