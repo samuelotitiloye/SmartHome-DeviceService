@@ -48,13 +48,13 @@ namespace DeviceService.Infrastructure.Cache
         {
             try
             {
-                var json - JsonSerializer.Serialize(value);
+                var json = JsonSerializer.Serialize(value);
 
                 var options = ttMinutes.HasValue ? new DistributedCacheEntryOptions
                 {
                     AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(ttMinutes.Value)
                 }
-                : DefaultOptions
+                : DefaultOptions;
 
                 await _cache.SetStringAsync(key, json, options);
 
@@ -62,7 +62,7 @@ namespace DeviceService.Infrastructure.Cache
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Redis SET failed for key: {Key}", key)
+                _logger.LogError(ex, "Redis SET failed for key: {Key}", key);
             }
         }
 
@@ -75,7 +75,7 @@ namespace DeviceService.Infrastructure.Cache
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Redis REMOVE failed for key: {Key}", key)
+                _logger.LogError(ex, "Redis REMOVE failed for key: {Key}", key);
             }
         }
     }
