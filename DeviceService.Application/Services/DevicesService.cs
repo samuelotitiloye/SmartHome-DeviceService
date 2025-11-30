@@ -1,9 +1,12 @@
 using System.Diagnostics;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using DeviceService.Application.Devices.Dto;
-using DeviceService.Application.Mappings;
 using DeviceService.Application.Interfaces;
 using DeviceService.Application.Common.Models;
 using DeviceService.Application.Devices.Models;
+using DeviceService.Application.Mappings;
 using DeviceService.Infrastructure.Cache;
 using Microsoft.Extensions.Logging;
 
@@ -13,7 +16,7 @@ namespace DeviceService.Application.Services
     public class DevicesService : IDevicesService
     {
         private readonly IDeviceRepository _repo;
-        private readonly RedisCacheService cache;
+        private readonly RedisCacheService _cache;
         private readonly ILogger<DevicesService> _logger;
 
         public DevicesService(IDeviceRepository _repo, RedisCacheService cache, ILogger<DevicesService> _logger )
@@ -31,20 +34,19 @@ namespace DeviceService.Application.Services
             var cacheKey = $"device:{id}";
 
             var cached = await _cache.GetAsync<DeviceDto>(cacheKey);
-
             if (cached != null)
             {
                 _logger.LogInformation("Redis HIT: {Key}", cacheKey);
                 return cached;
             }
+
             _logger.LogInformation("Redis MISS: {Key}", cacheKey);
 
             var entity = await _repo.GetByIdAsync(id);
-            if (entity != null)
-            return null;
+            if (entity == null)
+                return null;
 
             var dto = entity.ToDto();
-
             await _cache.SetAsync(cacheKey, dto);
 
             return dto;
@@ -57,12 +59,11 @@ namespace DeviceService.Application.Services
         {
             using var activity = Telemetry.ActivitySource.StartActivity("DeviceService.GetDevices");
 
-            var cacheKey = $"devices:{pagianation.PageNumber}:{pagianation.PageSize}:{filter.Type}:{filter.Location}:{filter.IsOnline}";
+            var cacheKey = $"devices:{pagination.PageNumber}:{pagination.PageSize}:{filter.Type}:{filter.Location}:{filter.IsOnline}";
 
             var cached = await _cache.GetAsync<PaginatedResult<DeviceDto>>(cacheKey);
             if (cached != null)
             {
-                _logger.LogInformation("Redis HIT: {Key}", cacheKey);
                 activity?.SetTag("cache.hit", true);
                 return cached;
             }
@@ -74,10 +75,10 @@ namespace DeviceService.Application.Services
 
             var dtoItems = result.Items.Select(x => x.ToDto()).ToList();
 
-            var dtoResult = new PaginatedResult<DeviceDtol>(
+            var dtoResult = new PaginatedResult<DeviceDto>(
                 dtoItems,
                 result.TotalCount,
-                pagianation.PageNumber,
+                pagination.PageNumber,
                 pagination.PageSize
             );
 
@@ -114,7 +115,7 @@ namespace DeviceService.Application.Services
             for (int page = 1; page <=5; page++)
             {
                 var keyPrefix = $"devices:{page}:";
-                await _cache.RemoveAsync(keyPrefix);
+                await _cache.RemoveAsync($"devices:{page}:");
             }
         }
     }

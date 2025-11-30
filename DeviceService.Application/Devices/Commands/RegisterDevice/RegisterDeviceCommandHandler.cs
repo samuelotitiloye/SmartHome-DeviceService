@@ -19,7 +19,7 @@ namespace DeviceService.Application.Devices.Commands.RegisterDevice
             _cache = cache;
         }
 
-        public async Task<DeviceDto> Handle(RegisterDeviceCommand request, CancellationToken cancellationToken)
+        public async Task<DeviceDto> Handle(RegisterDeviceCommand request, CancellationToken ct)
         {
             Log.Information("Registering device {@Request}", request);
 
@@ -64,8 +64,7 @@ namespace DeviceService.Application.Devices.Commands.RegisterDevice
         {
             for (int page = 1; page <= 5; page++)
             {
-                var keyPrefix = $"devices: {page}:";
-                await _cache.RemoveAsync(keyPrefix);
+                await _cache.RemoveAsync($"devices:{page}:");
             }
         }
     }

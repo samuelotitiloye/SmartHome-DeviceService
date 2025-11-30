@@ -8,9 +8,9 @@ namespace DeviceService.Application.Devices.Commands.DeleteDevice
     public class DeleteDeviceCommandHandler : IRequestHandler<DeleteDeviceCommand, bool>
     {
         private readonly IDeviceRepository _repo;
-        private readonly RedisCacheService cache;
+        private readonly RedisCacheService _cache;
 
-        public DeleteDeviceCommandHandler(IDeviceRepository repo)
+        public DeleteDeviceCommandHandler(IDeviceRepository repo, RedisCacheService cache)
         {
             _repo = repo;
             _cache = cache;
@@ -18,12 +18,12 @@ namespace DeviceService.Application.Devices.Commands.DeleteDevice
 
         public async Task<bool> Handle(DeleteDeviceCommand request, CancellationToken ct)
         {
-            Log.Information("Deleting device with ID {Device.Id}", request.request.Id);
+            Log.Information("Deleting device with ID {Device.Id}", request.Id);
 
             var device = await _repo.GetByIdAsync(request.Id);
             if (device == null)
             {
-                Log.Warning("Device {DeviceId} not found for deletion", request.Id);
+                Log.Warning("Device {DeviceId} not found", request.Id);
                 return false;
             }
 
@@ -52,8 +52,7 @@ namespace DeviceService.Application.Devices.Commands.DeleteDevice
         {
             for (int page = 1; page <= 5; page++)
             {
-                var keyPrefix = $"device:{page}:";
-                await _cache.RemoveAsync(keyPrefix);
+                await _cache.RemoveAsync($"devices:{page}:");
             }
         }
     }

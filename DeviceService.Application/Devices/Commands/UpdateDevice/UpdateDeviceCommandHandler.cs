@@ -1,6 +1,5 @@
 using DeviceService.Application.Interfaces;
 using DeviceService.Application.Devices.Dto;
-using DeviceService.Domain.Entities;
 using DeviceService.Infrastructure.Cache;
 using MediatR;
 using Serilog;
@@ -19,13 +18,13 @@ namespace DeviceService.Application.Devices.Commands.UpdateDevice
             _cache = cache;
         }
 
-        public async Task<DeviceDto?> Handle(UpdateDeviceCommand request, CancellationToken cancellationToken)
+        public async Task<DeviceDto?> Handle(UpdateDeviceCommand request, CancellationToken ct)
         {
             // Fetch device device
             var device = await _repo.GetByIdAsync(request.Id);
-            if (device is null)
+            if (device == null)
             {
-                Log.Warning("Device {DeviceId} not found for update", request.Id);
+                Log.Warning("Device {DeviceId} not found", request.Id);
                 return null;
             }
 
@@ -40,12 +39,6 @@ namespace DeviceService.Application.Devices.Commands.UpdateDevice
             await _repo.UpdateAsync(device);
 
             Log.Information("Device updated successfully {@Device}", device);
-
-            // if (request.ThresholdWatts.HasValue)
-            // {
-            //     device.ThresholdWatts = request.ThresholdWatts.Value;
-            // }
-            // device.SerialNumber = request.SerialNumber;
 
             // ===============================================
             // REDIS CACHE INVALIDATION
@@ -75,8 +68,7 @@ namespace DeviceService.Application.Devices.Commands.UpdateDevice
             // Simple predictable invalidation strategy (pages 1–5). SCAN/DEL to come
             for (int page = 1; page <= 5; page++)
             {
-                var keyPrefix = $"devices:{page}:";
-                await _cache.RemoveAsync(keyPrefix);
+                await _cache.RemoveAsync($"device:{page}:");
             }
         }
     }

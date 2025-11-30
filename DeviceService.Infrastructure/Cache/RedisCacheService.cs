@@ -1,16 +1,17 @@
+using System;
+using System.Text.Json;
+using System.Threading.Tasks;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Logging;
-using System;
 
-nammespace DeviceService.Infrastructure.Cache
+namespace DeviceService.Infrastructure.Cache
 {
     public class RedisCacheService
     {
         private readonly IDistributedCache _cache;
         private readonly ILogger<RedisCacheService> _logger;
 
-        private static readonly DistributedCacheEntryOptions DefaultOptions = 
-        new()
+        private static readonly DistributedCacheEntryOptions DefaultOptions = new()
         {
             AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(5)
         };
@@ -29,16 +30,16 @@ nammespace DeviceService.Infrastructure.Cache
 
                 if (cached == null)
                 {
-                    _logger.LogDebug("Redis MISS for key: {CacheKey}", key);
+                    _logger.LogDebug("Redis MISS for key: {Key}", key);
                     return default;
                 }
-                _logger.LogDebug("Redis HIT for key: {CacheKey}", key);
 
+                _logger.LogDebug("Redis HIT for key: {Key}", key);
                 return JsonSerializer.Deserialize<T>(cached);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Redis GET failed for key: {CacheKey}", key);
+                _logger.LogError(ex, "Redis GET failed for key: {Key}", key);
                 return default;
             }
         }
@@ -57,11 +58,11 @@ nammespace DeviceService.Infrastructure.Cache
 
                 await _cache.SetStringAsync(key, json, options);
 
-                _logger.LogDebug("Redis SET for key: {CacheKey}", key);
+                _logger.LogDebug("Redis SET for key: {Key}", key);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Redis SET failed for key: {CacheKey}", key)
+                _logger.LogError(ex, "Redis SET failed for key: {Key}", key)
             }
         }
 
@@ -70,11 +71,11 @@ nammespace DeviceService.Infrastructure.Cache
             try
             {
                 await _cache.RemoveAsync(key);
-                _logger.LogDebug("Redis REMOVE for key: {CacheKey}", key);
+                _logger.LogDebug("Redis REMOVE for key: {Key}", key);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Redis REMOVE failed for key: {CacheKey}", key)
+                _logger.LogError(ex, "Redis REMOVE failed for key: {Key}", key)
             }
         }
     }
