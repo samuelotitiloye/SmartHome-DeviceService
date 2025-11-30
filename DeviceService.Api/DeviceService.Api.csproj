@@ -3,14 +3,14 @@
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
 
-    <!-- Force runtime to .NET 8 (prevent .NET 10 bleed-through) -->
+    <!-- Force runtime to .NET 8 -->
     <RuntimeFrameworkVersion>8.0.10</RuntimeFrameworkVersion>
     <DisableTransitiveFrameworkReferences>true</DisableTransitiveFrameworkReferences>
 
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
 
-    <!-- Generate XML documentation -->
+    <!-- XML docs for Swagger -->
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <NoWarn>$(NoWarn);1591</NoWarn>
   </PropertyGroup>
@@ -19,13 +19,13 @@
   <ItemGroup>
     <ProjectReference Include="..\DeviceService.Application\DeviceService.Application.csproj" />
     <ProjectReference Include="..\DeviceService.Infrastructure\DeviceService.Infrastructure.csproj" />
-    <ProjectReference Include="..\DeviceService.Domain\DeviceService.Domain.csproj" />
   </ItemGroup>
 
   <!-- NuGet packages -->
   <ItemGroup>
     <PackageReference Include="AspNetCore.HealthChecks.NpgSql" Version="9.0.0" />
     <PackageReference Include="AspNetCore.HealthChecks.UI.Client" Version="9.0.0" />
+
     <PackageReference Include="CorrelationId" Version="3.0.1" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.0" />
 
@@ -35,9 +35,6 @@
     </PackageReference>
 
     <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="10.0.0" />
-
-    <!-- Explicitly pin OpenAPI so the compiler uses THIS version -->
-  <!--<PackageReference Update="Microsoft.OpenApi" Version="2.3.0" /> -->
 
     <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
 
@@ -71,12 +68,11 @@
     <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
     <PackageReference Include="Serilog.Sinks.Grafana.Loki" Version="8.3.1" />
     <PackageReference Include="Serilog.Sinks.Seq" Version="9.0.0" />
-     <None Include="serilog.json" CopyToOutputDirectory="Always" />
+    <None Include="serilog.json" CopyToOutputDirectory="Always" />
+
+    <!-- Swagger -->
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
-
-  <!-- Swagger: ensure packages target .NET 8 (keep versions consistent) -->
     <PackageReference Include="Swashbuckle.AspNetCore.Annotations" Version="6.6.2" />
-
 
     <!-- MediatR -->
     <PackageReference Include="MediatR" Version="12.2.0" />
