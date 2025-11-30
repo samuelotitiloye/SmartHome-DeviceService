@@ -4,7 +4,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Logging;
 
-namespace DeviceService.Infrastructure.Cache
+namespace DeviceService.Application.Cache
 {
     public class RedisCacheService
     {

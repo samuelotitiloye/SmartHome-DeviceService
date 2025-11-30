@@ -33,7 +33,7 @@ namespace DeviceService.Application.Devices.Commands.UpdateDevice
             device.Type = request.Type;
             device.Location = request.Location;
             device.IsOnline = request.IsOnline;
-            device.ThresholdWatts = request.ThresholdWatts;
+            device.ThresholdWatts = request.ThresholdWatts ?? device.ThresholdWatts;
             device.SerialNumber = request.SerialNumber;
 
             await _repo.UpdateAsync(device);

@@ -15,10 +15,9 @@ namespace DeviceService.Application.Devices.Commands.DeleteDevice
             _repo = repo;
             _cache = cache;
         }
-
         public async Task<bool> Handle(DeleteDeviceCommand request, CancellationToken ct)
         {
-            Log.Information("Deleting device with ID {Device.Id}", request.Id);
+            Log.Information("Deleting device with ID {DeviceId}", request.Id);
 
             var device = await _repo.GetByIdAsync(request.Id);
             if (device == null)
@@ -27,22 +26,19 @@ namespace DeviceService.Application.Devices.Commands.DeleteDevice
                 return false;
             }
 
-            var deleted = await _repo.DeleteAsync(request.Id);
-            if (!deleted)
-            {
-                Log.Warning("Failed to delete device {DeviceId}", request.Id);
-                return false;
-            }
-            Log.Information("Device deleted successfully {@Device}", device);
-                
+            // Perform deletion (throws if it fails)
+            await _repo.DeleteAsync(request.Id);
 
-            // ===============================================
-            // REDIS CACHE INVALIDATION
-            // ===============================================
-            // single
+            Log.Information("Device deleted successfully {@Device}", device);
+
+            // ===============================
+            // Redis cache invalidation
+            // ===============================
+
+            // delete single device cache key
             await _cache.RemoveAsync($"device:{device.Id}");
 
-            // invalidate paged device list
+            // delete device list cache prefixes
             await InvalidateDeviceListCache();
 
             return true;

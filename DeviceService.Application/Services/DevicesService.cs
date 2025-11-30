@@ -19,7 +19,7 @@ namespace DeviceService.Application.Services
         private readonly RedisCacheService _cache;
         private readonly ILogger<DevicesService> _logger;
 
-        public DevicesService(IDeviceRepository _repo, RedisCacheService cache, ILogger<DevicesService> _logger )
+        public DevicesService(IDeviceRepository repo, RedisCacheService cache, ILogger<DevicesService> logger )
         {
             _repo = repo;
             _cache = cache;
@@ -82,7 +82,7 @@ namespace DeviceService.Application.Services
                 pagination.PageSize
             );
 
-            await _cache.SetAsync(casheKey, dtoResult);
+            await _cache.SetAsync(cacheKey, dtoResult);
 
             return dtoResult;
         }
@@ -114,7 +114,6 @@ namespace DeviceService.Application.Services
             //later: upgrade to SCAN-DEL pattern?
             for (int page = 1; page <=5; page++)
             {
-                var keyPrefix = $"devices:{page}:";
                 await _cache.RemoveAsync($"devices:{page}:");
             }
         }
