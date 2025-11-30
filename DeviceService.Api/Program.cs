@@ -250,6 +250,8 @@ builder.Services.AddStackExchangeRedisCache(optoions =>
     options.InstanceName: "DeviceService"
 })
 builder.Services.AddSingleton<RedisCacheService>();
+builder.Services.AddScoped<RedisCacheService>();
+
 
 // ============================================
 //  OpenTelemetry: METRICS ONLY (Prometheus)

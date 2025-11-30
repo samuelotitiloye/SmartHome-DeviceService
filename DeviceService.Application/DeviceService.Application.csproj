@@ -2,7 +2,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\DeviceService.Domain\DeviceService.Domain.csproj" />
-    <ProjectReference Include="..\DeviceService.Infrastructure\DeviceService.Infrastructure.csproj" />
   </ItemGroup>
 
   <ItemGroup>

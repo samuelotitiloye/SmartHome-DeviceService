@@ -7,7 +7,7 @@ using DeviceService.Application.Interfaces;
 using DeviceService.Application.Common.Models;
 using DeviceService.Application.Devices.Models;
 using DeviceService.Application.Mappings;
-using DeviceService.Infrastructure.Cache;
+using DeviceService.Application.Cache;
 using Microsoft.Extensions.Logging;
 
 

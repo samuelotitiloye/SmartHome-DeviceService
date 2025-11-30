@@ -1,6 +1,6 @@
 using DeviceService.Application.Interfaces;
 using DeviceService.Application.Devices.Dto;
-using DeviceService.Infrastructure.Cache;
+using DeviceService.Application.Cache;
 using MediatR;
 using Serilog;
 
