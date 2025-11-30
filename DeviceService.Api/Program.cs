@@ -32,6 +32,7 @@ using CorrelationId.DependencyInjection;
 using HealthChecks.NpgSql;
 using DeviceService.Infrastructure.Seed;
 using DeviceService.Api.Settings;
+using DeviceService.Application.Cache;
 
 // =============
 //  BUILDER

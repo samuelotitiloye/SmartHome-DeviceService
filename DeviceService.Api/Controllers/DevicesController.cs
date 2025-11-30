@@ -111,25 +111,9 @@ namespace DeviceService.Api.Controllers
                 SortOrder = query.SortOrder
             };
 
-            var result = await _service.GetPagedAsync(
-                query.PageNumber ?? 1,
-                query.PageSize ?? 10,
-                query.Type,
-                query.Location,
-                query.IsOnline,
-                ct
-            );
+            var result = await _service.GetDevicesAsync(filter, pagination, ct);
 
-            var dtoItems = result.Items.Select(d => d.ToDto()).ToList();
-
-            var response = new PaginatedResult<DeviceDto>(
-                dtoItems,
-                result.PageNumber,
-                result.PageSize,
-                result.TotalCount
-            );
-
-            return Ok(response);
+            return Ok(result);
         }
 
 
