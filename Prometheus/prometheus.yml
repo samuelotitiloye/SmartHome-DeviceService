@@ -5,13 +5,13 @@ scrape_configs:
 - job_name: 'deviceservice'
   metrics_path: /metrics
   static_configs:
-  - targets: [ '["deviceservice.api:8080"]' ]
+  - targets: [ 'deviceservice.api:8080' ]
 
 alerting:
   alertmanagers:
   - static_configs:
     - targets:
-      - "alertmanager:9093"
+      - "alertManager:9093"
 
 rule_files:
-- "/etc/prometheus/rules/alerts.deviceservice.ymp"
+- "/etc/prometheus/rules/*.yml"

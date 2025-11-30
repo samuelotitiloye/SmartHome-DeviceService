@@ -1,80 +1,30 @@
 groups:
-  - name: deviceservice.alerts
-    rules:
-
-# 1) High p90 latency (e.g. > 500ms for 5 minutes)
-    - alert: DeviceServiceHighLatency90
-    expr: |       
-              histogram_quantile(0.90, sum by (le) (rate(http_server_request_duration_seconds_bucket{job="deviceservice"}[5m]))) * 1000 > 500
-    fort: 5m
+- name: deviceservice-alerts
+  rules:
+  - alert: HighRequestLatency
+    expr: histogram_quantile(0.9, sum(rate(http_server_request_duration_seconds_bucket[1m])) by (le))
+      > 0.5
+    for: 30s
     labels:
       severity: warning
-      service: deviceservice.alerts
     annotations:
-      summary: "High p90 latency on DeviceService"
-      description: "p90 latency is > 500ms for more that 5 minutes."
+      summary: "High request latency detected"
+      description: "90th percentile request latency is above 0.5s"
 
-# 2) High error rate (>5% over 5 minutes)
-  - alert: DeviceServiceHighErrorRate
-    expr: |
-              (sum(rate(http_server_request_duration_seconds_count{job="deviceservice", http_response_status_code=~"4..|5.."}[5m]))/clamp_min(
-              sum(rate(http_server_request_duration_seconds_count{job="deviceservice"}[5m])),0.000001)) * 100 > 5
-    for: 5m
+  - alert: HighRequestRate
+    expr: sum(rate(http_server_requests_received_total[1m])) > 50
+    for: 1m
     labels:
       severity: warning
-      service: deviceservice.alerts
-    annotations: "High error rate on DeviceService"
-    description: "Error rate is above 5% for the last 5 minutes."
+    annotations:
+      summary: "High request rate detected"
+      description: "More than 50 requests/sec received"
 
-# 3) Service down
-  - alert: DeviceServiceDown
-    expr: |
-          max_over_time(up{job="deviceservice"}[5m]) < 1
-    for: 2m
+  - alert: TooMany5xx
+    expr: sum(rate(http_server_requests_errors_total[1m])) > 5
+    for: 30s
     labels:
       severity: critical
-      service: deviceservice.alerts
     annotations:
-      summary: "DeviceService is DOWN"
-      description: "No successful scrapes for job-deviceservice in the last 5 minutes."
-
-   # 4) CPU > 90% over 5 minutes
-  - alert: DeviceServiceHighCPU
-    expr: |
-          rate(process_cpu_seconds_total{job="deviceservice"}[5m]) * 100 > 90
-    for: 5m
-    labels: 
-      severity: warning
-      service: deviceservice
-    annotations:
-      summary: "High CPU usage on DeviceService"
-      description: "CPU usage > 90% over the last 5 minutes."
-
-# 5) Memory usage > 85% of 512MB (tweak threshold if needed)
-  - alert: DeviceServiceHighMemory
-    expr: |
-      process_resident_memory_bytes{job="deviceservice"} > 0.85 * 512 * 1024 * 1024
-    for: 5m
-    labels: 
-      severity: warning
-      service: deviceservice
-    annotations:
-      summary: "High memory usage on DeviceService."
-      description: "DeviceService resident memory > 85% of 512MB."
-
-
-      # 6) DB connection pool saturation (placeholder metric)
-      # ⚠️ This assumes later exposure of metrics like:
-      #   db_connection_pool_in_use / db_connection_pool_size
-      # For now this acts as a template; it won't fire until metric exists.
-  - alert: DeviceServiceDbConnectionPoolSaturation
-    expr: |
-          db_connection_pool_in_use{service="deviceservice"}/clamp_min(db_connection_pool_size{service="deviceservice"}, 1)> 0.8
-    for: 5m
-    labels: 
-      severity: warning
-      service: deviceservice
-    annotations:
-      summary: "DB connection pool saturation"
-      description: "DB connection pool usage is above 80% for than 5 minutes."
-
+      summary: "High 5xx error rate"
+      description: "The service is returning 5xx errors at a high rate"
