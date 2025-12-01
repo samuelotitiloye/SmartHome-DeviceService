@@ -1,5 +1,4 @@
 using DeviceService.Application.Interfaces;
-using DeviceService.Application.Cache;
 using MediatR;
 using Serilog;
 
@@ -8,9 +7,9 @@ namespace DeviceService.Application.Devices.Commands.DeleteDevice
     public class DeleteDeviceCommandHandler : IRequestHandler<DeleteDeviceCommand, bool>
     {
         private readonly IDeviceRepository _repo;
-        private readonly RedisCacheService _cache;
+        private readonly ICacheService _cache;
 
-        public DeleteDeviceCommandHandler(IDeviceRepository repo, RedisCacheService cache)
+        public DeleteDeviceCommandHandler(IDeviceRepository repo, ICacheService cache)
         {
             _repo = repo;
             _cache = cache;
@@ -39,17 +38,9 @@ namespace DeviceService.Application.Devices.Commands.DeleteDevice
             await _cache.RemoveAsync($"device:{device.Id}");
 
             // delete device list cache prefixes
-            await InvalidateDeviceListCache();
+            await _cache.RemoveByPatternAsync("devices:*");
 
             return true;
-        }
-
-        private async Task InvalidateDeviceListCache()
-        {
-            for (int page = 1; page <= 5; page++)
-            {
-                await _cache.RemoveAsync($"devices:{page}:");
-            }
         }
     }
 }

@@ -1,6 +1,5 @@
 using DeviceService.Application.Interfaces;
 using DeviceService.Application.Devices.Dto;
-using DeviceService.Application.Cache;
 using MediatR;
 using Serilog;
 
@@ -10,9 +9,9 @@ namespace DeviceService.Application.Devices.Commands.UpdateDevice
         : IRequestHandler<UpdateDeviceCommand, DeviceDto?>
     {
         private readonly IDeviceRepository _repo;
-        private readonly RedisCacheService _cache;
+        private readonly ICacheService _cache;
 
-        public UpdateDeviceCommandHandler(IDeviceRepository repo, RedisCacheService cache)
+        public UpdateDeviceCommandHandler(IDeviceRepository repo, ICacheService cache)
         {
             _repo = repo;
             _cache = cache;
@@ -20,11 +19,12 @@ namespace DeviceService.Application.Devices.Commands.UpdateDevice
 
         public async Task<DeviceDto?> Handle(UpdateDeviceCommand request, CancellationToken ct)
         {
+            Log.Information("Updating device {@Request}", request);
             // Fetch device device
             var device = await _repo.GetByIdAsync(request.Id);
             if (device == null)
             {
-                Log.Warning("Device {DeviceId} not found", request.Id);
+                Log.Warning("Device {DeviceId} not found for update", request.Id);
                 return null;
             }
 
@@ -48,7 +48,7 @@ namespace DeviceService.Application.Devices.Commands.UpdateDevice
             await _cache.RemoveAsync($"device:{device.Id}");
             
             // Clear list caches
-            await InvalidateDeviceListCache();
+            await _cache.RemoveByPatternAsync("devices:*");
 
             // Return DTO
             return new DeviceDto(
@@ -61,15 +61,6 @@ namespace DeviceService.Application.Devices.Commands.UpdateDevice
                 device.SerialNumber,
                 device.RegisteredAt
             );
-        }
-
-        private async Task ?InvalidateDeviceListCache()
-        {
-            // Simple predictable invalidation strategy (pages 1–5). SCAN/DEL to come
-            for (int page = 1; page <= 5; page++)
-            {
-                await _cache.RemoveAsync($"device:{page}:");
-            }
         }
     }
 }

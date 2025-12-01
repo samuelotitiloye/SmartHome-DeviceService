@@ -7,8 +7,8 @@ using DeviceService.Application.Interfaces;
 using DeviceService.Application.Common.Models;
 using DeviceService.Application.Devices.Models;
 using DeviceService.Application.Mappings;
-using DeviceService.Application.Cache;
 using Microsoft.Extensions.Logging;
+
 
 
 namespace DeviceService.Application.Services
@@ -16,10 +16,10 @@ namespace DeviceService.Application.Services
     public class DevicesService : IDevicesService
     {
         private readonly IDeviceRepository _repo;
-        private readonly RedisCacheService _cache;
+        private readonly ICacheService _cache;
         private readonly ILogger<DevicesService> _logger;
 
-        public DevicesService(IDeviceRepository repo, RedisCacheService cache, ILogger<DevicesService> logger )
+        public DevicesService(IDeviceRepository repo, ICacheService cache, ILogger<DevicesService> logger )
         {
             _repo = repo;
             _cache = cache;
@@ -59,27 +59,37 @@ namespace DeviceService.Application.Services
         {
             using var activity = Telemetry.ActivitySource.StartActivity("DeviceService.GetDevices");
 
-            var cacheKey = $"devices:{pagination.PageNumber}:{pagination.PageSize}:{filter.Type}:{filter.Location}:{filter.IsOnline}";
+            var cacheKey = 
+            $"devices:{pagination.PageNumber}:{pagination.PageSize}:" +
+            $"{filter.Type}:{filter.Location}:{filter.IsOnline}:" + 
+            $"{filter.NameContains}:{filter.MinThresholdWatts}:" +
+            $"{filter.SortBy}:{filter.SortOrder}";
+
+            activity?.SetTag("cache.key", cacheKey);
+
 
             var cached = await _cache.GetAsync<PaginatedResult<DeviceDto>>(cacheKey);
             if (cached != null)
             {
                 activity?.SetTag("cache.hit", true);
+                _logger.LogInformation("Redis HIT: {Key}", cacheKey);
                 return cached;
             }
 
-            _logger.LogInformation("Redis MISS: {Key}", cacheKey);
             activity?.SetTag("cache.hit", false);
+            _logger.LogInformation("Redis MISS: {Key}", cacheKey);
 
             var result = await _repo.GetDevicesAsync(filter, pagination, ct);
 
-            var dtoItems = result.Items.Select(x => x.ToDto()).ToList();
+            activity?.SetTag("result.Count", result.Items.Count);
 
+            var dtoItems = result.Items.Select(d => d.ToDto()).ToList();
+                
             var dtoResult = new PaginatedResult<DeviceDto>(
                 dtoItems,
                 result.TotalCount,
-                pagination.PageNumber,
-                pagination.PageSize
+                result.PageNumber,
+                result.PageSize
             );
 
             await _cache.SetAsync(cacheKey, dtoResult);
@@ -99,7 +109,7 @@ namespace DeviceService.Application.Services
             await _repo.AddAsync(entity);
 
             // invalidate cache for list endpoints
-            await InvalidateDeviceListCache();
+            await _cache.RemoveByPatternAsync("devices:*");
             await _cache.RemoveAsync($"device:{entity.Id}");
 
             return entity.ToDto();

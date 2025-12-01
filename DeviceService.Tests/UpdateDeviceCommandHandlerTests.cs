@@ -1,31 +1,29 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
-using DeviceService.Application.Cache;
+using DeviceService.Application.Interfaces;
 using DeviceService.Application.Devices.Commands.UpdateDevice;
 using DeviceService.Application.Devices.Dto;
-using DeviceService.Infrastructure.Repositories;
 using DeviceService.Domain.Entities;
-using Microsoft.Extensions.Caching.Memory;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
+using DeviceService.Infrastructure.Repositories;
 using FluentAssertions;
-using Xunit;
-using Microsoft.Extensions.Caching.Distributed;
 using Moq;
-
+using Xunit;
 
 public class UpdateDeviceCommandHandlerTests
 {
-    private readonly RedisCacheService _cache;
+    private readonly Mock<ICacheService> _cacheMock;
 
     public UpdateDeviceCommandHandlerTests()
     {
-        var memoryCache = new MemoryDistributedCache(
-            Options.Create(new MemoryDistributedCacheOptions())
-        );
+        _cacheMock = new Mock<ICacheService>();
 
-        _cache = new RedisCacheService(memoryCache, LoggerFactory.Create(_ => { }).CreateLogger<RedisCacheService>());
+        // Setup defaults
+        _cacheMock.Setup(c => c.RemoveAsync(It.IsAny<string>()))
+            .Returns(Task.CompletedTask);
+
+        _cacheMock.Setup(c => c.RemoveByPatternAsync(It.IsAny<string>()))
+            .Returns(Task.CompletedTask);
     }
 
     [Fact]
@@ -34,8 +32,7 @@ public class UpdateDeviceCommandHandlerTests
         // Arrange
         var repo = new InMemoryDeviceRepository();
 
-        // Seed a device
-        var device = new DeviceService.Domain.Entities.Device(
+        var device = new Device(
             Guid.NewGuid(),
             "Old Name",
             "Old Type",
@@ -48,7 +45,7 @@ public class UpdateDeviceCommandHandlerTests
 
         await repo.AddAsync(device);
 
-        var handler = new UpdateDeviceCommandHandler(repo, _cache);
+        var handler = new UpdateDeviceCommandHandler(repo, _cacheMock.Object);
 
         var command = new UpdateDeviceCommand(
             device.Id,
@@ -71,5 +68,9 @@ public class UpdateDeviceCommandHandlerTests
         result.IsOnline.Should().BeTrue();
         result.SerialNumber.Should().Be("XYZ789");
         result.ThresholdWatts.Should().Be(200);
+
+        // Verify that cache invalidation happened
+        _cacheMock.Verify(c => c.RemoveAsync($"device:{device.Id}"), Times.Once);
+        _cacheMock.Verify(c => c.RemoveByPatternAsync("devices:*"), Times.Once);
     }
 }

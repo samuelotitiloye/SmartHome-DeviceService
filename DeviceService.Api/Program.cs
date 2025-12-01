@@ -32,7 +32,8 @@ using CorrelationId.DependencyInjection;
 using HealthChecks.NpgSql;
 using DeviceService.Infrastructure.Seed;
 using DeviceService.Api.Settings;
-using DeviceService.Application.Cache;
+using DeviceService.Infrastructure.Cache;
+using StackExchange.Redis;
 
 // =============
 //  BUILDER
@@ -244,13 +245,19 @@ builder.Services.AddHealthChecks()
 // =======================================
 //   REDIS CACHING
 // =======================================
+builder.Services.AddSingleton<IConnectionMultiplexer>(sp =>
+{
+    var configuration = builder.Configuration.GetConnectionString("Redis");
+    return ConnectionMultiplexer.Connect(configuration);
+});
+
 builder.Services.AddStackExchangeRedisCache(options => 
 {
     options.Configuration = builder.Configuration.GetConnectionString("Redis");
     options.InstanceName = "DeviceService";
 });
 
-builder.Services.AddSingleton<RedisCacheService>();
+builder.Services.AddSingleton<ICacheService, RedisCacheService>();
 
 
 // ============================================

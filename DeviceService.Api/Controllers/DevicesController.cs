@@ -106,7 +106,7 @@ namespace DeviceService.Api.Controllers
                 NameContains = query.Name,
                 Location = query.Location,
                 Type = query.Type,
-                IsOnline = query.IsOnline,   // bool?
+                IsOnline = query.IsOnline,   
                 SortBy = query.SortBy,
                 SortOrder = query.SortOrder
             };

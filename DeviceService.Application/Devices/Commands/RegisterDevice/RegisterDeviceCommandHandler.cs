@@ -1,9 +1,10 @@
+using System.Threading;
+using System.Threading.Tasks;
 using DeviceService.Application.Interfaces;
 using DeviceService.Application.Devices.Dto;
 using DeviceService.Domain.Entities;
-using DeviceService.Application.Cache;
 using MediatR;
-using Serilog;
+using Microsoft.Extensions.Logging;
 
 namespace DeviceService.Application.Devices.Commands.RegisterDevice
 {
@@ -11,42 +12,41 @@ namespace DeviceService.Application.Devices.Commands.RegisterDevice
         : IRequestHandler<RegisterDeviceCommand, DeviceDto>
     {
         private readonly IDeviceRepository _repo;
-        private readonly RedisCacheService _cache;
+        private readonly ICacheService _cache;
+        private readonly ILogger<RegisterDeviceCommandHandler> _logger;
 
-        public RegisterDeviceCommandHandler(IDeviceRepository repo, RedisCacheService cache)
+        public RegisterDeviceCommandHandler(
+            IDeviceRepository repo,
+            ICacheService cache,
+            ILogger<RegisterDeviceCommandHandler> logger)
         {
             _repo = repo;
             _cache = cache;
+            _logger = logger;
         }
 
-        public async Task<DeviceDto> Handle(RegisterDeviceCommand request, CancellationToken ct)
+        public async Task<DeviceDto> Handle(
+            RegisterDeviceCommand request, 
+            CancellationToken ct)
         {
-            Log.Information("Registering device {@Request}", request);
+            _logger.LogInformation("Registering device {@Request}", request);
 
             var device = new Device
             {
                 Name = request.Name,
                 Type = request.Type,
                 Location = request.Location,
+                IsOnline = request.IsOnline,
                 ThresholdWatts = request.ThresholdWatts,
                 SerialNumber = request.SerialNumber,
-                IsOnline = false,
                 RegisteredAt = DateTime.UtcNow
             };
 
             await _repo.AddAsync(device);
 
-            Log.Information("Device registered successfully {@Device}", device);
-
-            // ===============================================
-            // REDIS CACHE INVALIDATION
-            // ===============================================
-
-            // Invalidate single device
+            // Cache invalidation
+            await _cache.RemoveByPatternAsync("devices:*");
             await _cache.RemoveAsync($"device:{device.Id}");
-
-            //invalidate paginated device list
-            await InvalidateDeviceListCache();
 
             return new DeviceDto(
                 device.Id,
@@ -58,14 +58,6 @@ namespace DeviceService.Application.Devices.Commands.RegisterDevice
                 device.SerialNumber,
                 device.RegisteredAt
             );
-        }
-
-        private async Task InvalidateDeviceListCache()
-        {
-            for (int page = 1; page <= 5; page++)
-            {
-                await _cache.RemoveAsync($"devices:{page}:");
-            }
         }
     }
 }

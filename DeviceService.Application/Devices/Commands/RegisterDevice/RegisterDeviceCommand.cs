@@ -7,6 +7,7 @@ namespace DeviceService.Application.Devices.Commands.RegisterDevice
         string Name,
         string Type,
         string Location,
+        bool IsOnline,
         int ThresholdWatts,
         string SerialNumber
     ) : IRequest<DeviceDto>;
