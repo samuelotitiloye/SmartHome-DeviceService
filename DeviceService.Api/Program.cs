@@ -6,12 +6,16 @@ using System.Threading.RateLimiting;
 using DeviceService.Api.Auth;
 using DeviceService.Api.Logging;
 using DeviceService.Api.Middleware;
+using DeviceService.Api.Extensions;
+using DeviceService.Api.Settings;
 using DeviceService.Application;
 using DeviceService.Application.Devices.Commands.UpdateDevice;
 using DeviceService.Application.Interfaces;
 using DeviceService.Application.Services;
 using DeviceService.Infrastructure.Persistence;
 using DeviceService.Infrastructure.Repositories;
+using DeviceService.Infrastructure.Seed;
+using DeviceService.Infrastructure.Cache;
 
 using MediatR;
 
@@ -30,10 +34,9 @@ using Serilog;
 using CorrelationId;
 using CorrelationId.DependencyInjection;
 using HealthChecks.NpgSql;
-using DeviceService.Infrastructure.Seed;
-using DeviceService.Api.Settings;
-using DeviceService.Infrastructure.Cache;
+
 using StackExchange.Redis;
+
 
 // =============
 //  BUILDER
@@ -245,11 +248,12 @@ builder.Services.AddHealthChecks()
 // =======================================
 //   REDIS CACHING
 // =======================================
-builder.Services.AddSingleton<IConnectionMultiplexer>(sp =>
-{
-    var configuration = builder.Configuration.GetConnectionString("Redis");
-    return ConnectionMultiplexer.Connect(configuration);
-});
+// if (!string.IsNullOrEmpty(redisConnString))
+// {    
+//     builder.Services.AddSingleton<IConnectionMultiplexer>(
+//         sp => ConnectionMultiplexer.Connect(redisConnString)
+//     );
+// }
 
 builder.Services.AddStackExchangeRedisCache(options => 
 {
@@ -355,6 +359,7 @@ app.UseMiddleware<LogEnrichmentMiddleware>();
 app.UseRouting();
 
 // Auth
+app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 
