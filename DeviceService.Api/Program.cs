@@ -261,10 +261,12 @@ builder.Services.AddStackExchangeRedisCache(options =>
     options.InstanceName = "DeviceService";
 });
 
-builder.Services.AddSingleton<ICacheService, RedisCacheService>();
+// builder.Services.AddSingleton<ICacheService, RedisCacheService>();
 
 builder.Services.Configure<RedisSettings>(
     builder.Configuration.GetSection("Redis"));
+
+builder.Services.AddSingleton<RedisConnectionFactory>();
 
 
 
