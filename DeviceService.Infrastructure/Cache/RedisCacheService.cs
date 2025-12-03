@@ -3,80 +3,76 @@ using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
 using DeviceService.Application.Interfaces;
-using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
+using DeviceService.Infrastructure.Configuration;
+using Microsoft.Extensions.Options;
 
 namespace DeviceService.Infrastructure.Cache
 {
     public class RedisCacheService : ICacheService
     {
-        private readonly IDistributedCache _cache;
-        private readonly IDatabase _redisDb;
-        private readonly ILogger<RedisCacheService> _logger;
-
-        private static readonly DistributedCacheEntryOptions DefaultOptions =
-            new DistributedCacheEntryOptions
-            {
-                AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(5)
-            };
+        private readonly RedisConnectionFactory _factory;
+        private readonly RedisSettings _settings;
 
         public RedisCacheService(
-            IDistributedCache cache,
-            IConnectionMultiplexer muxer,
-            ILogger<RedisCacheService> logger)
+           RedisConnectionFactory factory,
+           IOptions<RedisSettings> settings)
         {
-            _cache = cache;
-            _logger = logger;
-            _redisDb = muxer.GetDatabase();
+            _factory = factory;
+            _settings = settings.Value;
         }
 
         // ---------------------------------------------------------
         // BASIC GET
         // ---------------------------------------------------------
+        private async Task<IDatabase> GetDatabaseAsync()
+        {
+            var connection = await _factory.GetConnectionAsync();
+            return connection.GetDatabase();
+        }
+
+        private IServer GetServer(ConnectionMultiplexer connection)
+        {
+            // use first configured endpoint
+            return connection.GetServer(_settings.Host, _settings.Port);
+        }
+
+        private string BuildKey(string key)
+        {
+            return $"{_settings.InstanceName}{key}";
+        }
+
+
         public async Task<T?> GetAsync<T>(string key)
         {
-            try
-            {
-                var json = await _cache.GetStringAsync(key);
+                var db = await GetDatabaseAsync();
+                var value = await db.StringGetAsync(BuildKey(key));
 
-                if (json == null)
+                if (value.IsNullOrEmpty)
                 {
-                    _logger.LogDebug("Redis MISS: {Key}", key);
                     return default;
                 }
 
-                _logger.LogDebug("Redis HIT: {Key}", key);
-                return JsonSerializer.Deserialize<T>(json);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Redis GET failed for {Key}", key);
-                return default;
-            }
-        }
+                return JsonSerializer.Deserialize<T>(value!);
+        }           
 
         // ---------------------------------------------------------
         // BASIC SET
         // ---------------------------------------------------------
         public async Task SetAsync<T>(string key, T value, int? ttlMinutes = null)
         {
-            try
-            {
-                var json = JsonSerializer.Serialize(value);
+                var db = await GetDatabaseAsync();
+                var redisKey = BuildKey(key);
+                var serialized = JsonSerializer.Serialize(value);
 
-                var options = ttlMinutes.HasValue
-                    ? new DistributedCacheEntryOptions
-                    { AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(ttlMinutes.Value) }
-                    : DefaultOptions;
-
-                await _cache.SetStringAsync(key, json, options);
-                _logger.LogDebug("Redis SET: {Key}", key);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Redis SET failed for {Key}", key);
-            }
+                await db.StringSetAsync(redisKey, serialized); 
+                    
+                if (ttlMinutes.HasValue)
+                {
+                    var expiry = TimeSpan.FromMinutes(ttlMinutes.Value);
+                    await db.KeyExpireAsync(redisKey, expiry);
+                }
         }
 
         // ---------------------------------------------------------
@@ -84,15 +80,8 @@ namespace DeviceService.Infrastructure.Cache
         // ---------------------------------------------------------
         public async Task RemoveAsync(string key)
         {
-            try
-            {
-                await _cache.RemoveAsync(key);
-                _logger.LogDebug("Redis REMOVE: {Key}", key);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Redis REMOVE failed for {Key}", key);
-            }
+            var db = await GetDatabaseAsync();
+            await db.KeyDeleteAsync(BuildKey(key));
         }
 
         // ---------------------------------------------------------
@@ -100,53 +89,16 @@ namespace DeviceService.Infrastructure.Cache
         // ---------------------------------------------------------
         public async Task RemoveByPatternAsync(string pattern)
         {
-            try
+            var connection = await _factory.GetConnectionAsync();
+            var server = GetServer(connection);
+            var db = connection.GetDatabase();
+
+            var fullPattern = $"{_settings.InstanceName}{pattern}";
+
+            //SCAN: safer than KEYS
+            foreach (var key in server.Keys(pattern: fullPattern))
             {
-                _logger.LogInformation("Redis wildcard delete starting. Pattern: {Pattern}", pattern);
-
-                var server = GetServer();
-                if (server == null)
-                {
-                    _logger.LogWarning("Redis server not resolved. Skipping pattern delete.");
-                    return;
-                }
-
-                int removed = 0;
-
-                foreach (var key in server.Keys(pattern: pattern))
-                {
-                    await _redisDb.KeyDeleteAsync(key);
-                    removed++;
-                }
-
-                _logger.LogInformation(
-                    "Redis wildcard delete completed. Pattern: {Pattern}, Removed: {Count}",
-                    pattern, removed);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Redis wildcard delete failed for pattern: {Pattern}", pattern);
-            }
-        }
-
-        // ---------------------------------------------------------
-        // Resolve Redis Server (for SCAN)
-        // ---------------------------------------------------------
-        private IServer? GetServer()
-        {
-            try
-            {
-                var multiplexer = _redisDb.Multiplexer;
-                var endpoints = multiplexer.GetEndPoints();
-
-                if (endpoints.Length == 0)
-                    return null;
-
-                return multiplexer.GetServer(endpoints[0]);
-            }
-            catch
-            {
-                return null;
+                await db.KeyDeleteAsync(key);
             }
         }
     }
