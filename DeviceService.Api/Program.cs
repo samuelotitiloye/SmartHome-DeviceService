@@ -16,6 +16,7 @@ using DeviceService.Infrastructure.Persistence;
 using DeviceService.Infrastructure.Repositories;
 using DeviceService.Infrastructure.Seed;
 using DeviceService.Infrastructure.Cache;
+using DeviceService.Infrastructure.Configuration;
 
 using MediatR;
 
@@ -36,7 +37,6 @@ using CorrelationId.DependencyInjection;
 using HealthChecks.NpgSql;
 
 using StackExchange.Redis;
-
 
 // =============
 //  BUILDER
@@ -262,6 +262,10 @@ builder.Services.AddStackExchangeRedisCache(options =>
 });
 
 builder.Services.AddSingleton<ICacheService, RedisCacheService>();
+
+builder.Services.Configure<RedisSettings>(
+    builder.Configuration.GetSection("Redis"));
+
 
 
 // ============================================
