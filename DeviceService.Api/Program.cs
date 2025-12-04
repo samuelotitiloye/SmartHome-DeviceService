@@ -38,6 +38,21 @@ using HealthChecks.NpgSql;
 
 using StackExchange.Redis;
 
+using DeviceService.Application;
+using DeviceService.Application.Devices.Caching;
+using DeviceService.Application.Devices.Dto;
+
+// Queries
+using DeviceService.Application.Devices.Queries.GetDeviceById;
+using DeviceService.Application.Devices.Queries.ListDevices;
+
+// Commands
+using DeviceService.Application.Devices.Commands.UpdateDevice;
+using DeviceService.Application.Devices.Commands.RegisterDevice;
+using DeviceService.Application.Devices.Commands.DeleteDevice;
+using DeviceService.Application.Common.Models;
+
+
 // =============
 //  BUILDER
 // =============
@@ -173,9 +188,6 @@ builder.Services.AddScoped<IDevicesService, DevicesService>();
 builder.Services.AddScoped<DevicesService>();
 
 
-builder.Services.AddMediatR(cfg =>
-    cfg.RegisterServicesFromAssembly(typeof(UpdateDeviceCommand).Assembly));
-
 // ========================================
 //  CONTROLLERS + JSON OPTIONS
 // ========================================
@@ -246,28 +258,54 @@ builder.Services.AddHealthChecks()
     .AddNpgSql(connectionString, name: "postgres");
 
 // =======================================
-//   REDIS CACHING
+//  REDIS CACHING (Clean Version)
 // =======================================
-// if (!string.IsNullOrEmpty(redisConnString))
-// {    
-//     builder.Services.AddSingleton<IConnectionMultiplexer>(
-//         sp => ConnectionMultiplexer.Connect(redisConnString)
-//     );
-// }
 
-builder.Services.AddStackExchangeRedisCache(options => 
+var redisConnString = builder.Configuration["Redis:ConnectionString"];
+
+if (!string.IsNullOrWhiteSpace(redisConnString))
 {
-    options.Configuration = builder.Configuration.GetConnectionString("Redis");
-    options.InstanceName = "DeviceService";
-});
+    builder.Services.AddSingleton<IConnectionMultiplexer>(
+        _ => ConnectionMultiplexer.Connect(redisConnString + ",abortConnect=false")
+    );
+}
 
-// builder.Services.AddSingleton<ICacheService, RedisCacheService>();
+builder.Services.AddSingleton<ICacheService, RedisCacheService>();
 
 builder.Services.Configure<RedisSettings>(
     builder.Configuration.GetSection("Redis"));
 
 builder.Services.AddSingleton<RedisConnectionFactory>();
 
+
+builder.Services.AddMediatR(cfg =>
+    cfg.RegisterServicesFromAssembly(typeof(GetDeviceByIdQuery).Assembly));
+
+// ---------------------------------------
+// DECORATORS FOR CACHING + INVALIDATION
+// ---------------------------------------
+builder.Services.Decorate<
+    IRequestHandler<GetDeviceByIdQuery, DeviceDto?>,
+    GetDeviceByIdCachedQueryHandler>();
+
+builder.Services.Decorate<
+    IRequestHandler<ListDevicesQuery, PaginatedResult<DeviceDto>>,
+    ListDevicesCachedQueryHandler>();
+
+builder.Services.Decorate<
+    IRequestHandler<UpdateDeviceCommand, DeviceDto>,
+    UpdateDeviceCacheInvalidationHandler>();
+
+builder.Services.Decorate<
+    IRequestHandler<RegisterDeviceCommand, DeviceDto>,
+    RegisterDeviceCacheInvalidationHandler>();
+
+builder.Services.Decorate<
+    IRequestHandler<DeleteDeviceCommand, bool>,
+    DeleteDeviceCacheInvalidationHandler>();
+
+
+builder.Services.AddApplicationServices();
 
 
 // ============================================

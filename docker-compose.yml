@@ -11,6 +11,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     ports:
     - "8080:8080"
 
@@ -33,6 +35,12 @@ services:
       Database__Password: ${DB_PASSWORD}
 
       # ========================
+      # REDIS
+      # ========================
+      Redis__ConnectionString: redis:6379
+      
+
+      # ========================
       # JWT
       # ========================
       JWT_SECRET: ${JWT_SECRET:-SuperUltraSecureLocalJwtKey_1234567890_ABC!!}
@@ -44,6 +52,26 @@ services:
       interval: 10s
       retries: 3
       timeout: 5s
+
+    networks:
+    - smarthome
+
+  # ===============================
+  # Redis Cache Container
+  # ===============================
+  redis:
+    image: redis:7
+    container_name: deviceservice.redis
+    restart: always
+
+    ports:
+    - "6379:6379"
+
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 5s
+      timeout: 3s
+      retries: 5
 
     networks:
     - smarthome
@@ -77,9 +105,9 @@ services:
     networks:
     - smarthome
 
-
 volumes:
   pgdata:
+
 
 networks:
   smarthome:

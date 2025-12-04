@@ -16,22 +16,6 @@ namespace DeviceService.Application
     {
         public static IServiceCollection AddApplicationServices(this IServiceCollection services)
         {
-            // ------------------------
-            //   QUERY DECORATORS
-            // ------------------------
-            services.Decorate<IRequestHandler<GetDeviceByIdQuery, DeviceDto?>, GetDeviceByIdCachedQueryHandler>();
-
-            services.Decorate<
-                IRequestHandler<ListDevicesQuery, PaginatedResult<DeviceDto>>,
-                ListDevicesCachedQueryHandler>();
-
-            // ------------------------
-            //   COMMAND DECORATORS
-            // ------------------------
-            services.Decorate<IRequestHandler<UpdateDeviceCommand, DeviceDto>, UpdateDeviceCacheInvalidationHandler>();
-            services.Decorate<IRequestHandler<RegisterDeviceCommand, DeviceDto>, RegisterDeviceCacheInvalidationHandler>();
-            services.Decorate<IRequestHandler<DeleteDeviceCommand, bool>, DeleteDeviceCacheInvalidationHandler>();
-
             // Cache invalidation helper
             services.AddSingleton<DeviceCacheInvalidator>();
 

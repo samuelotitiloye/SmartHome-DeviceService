@@ -1,30 +1,15 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
-using DeviceService.Application.Interfaces;
 using DeviceService.Application.Devices.Commands.DeleteDevice;
+using DeviceService.Application.Interfaces;
 using DeviceService.Domain.Entities;
 using DeviceService.Infrastructure.Repositories;
 using FluentAssertions;
-using Moq;
 using Xunit;
 
 public class DeleteDeviceCommandHandlerTests
 {
-    private readonly Mock<ICacheService> _cacheMock;
-
-    public DeleteDeviceCommandHandlerTests()
-    {
-        _cacheMock = new Mock<ICacheService>();
-
-        // Stub cache methods
-        _cacheMock.Setup(c => c.RemoveAsync(It.IsAny<string>()))
-            .Returns(Task.CompletedTask);
-
-        _cacheMock.Setup(c => c.RemoveByPatternAsync(It.IsAny<string>()))
-            .Returns(Task.CompletedTask);
-    }
-
     [Fact]
     public async Task Should_Delete_Existing_Device()
     {
@@ -44,7 +29,7 @@ public class DeleteDeviceCommandHandlerTests
 
         await repo.AddAsync(device);
 
-        var handler = new DeleteDeviceCommandHandler(repo, _cacheMock.Object);
+        var handler = new DeleteDeviceCommandHandler(repo);
         var command = new DeleteDeviceCommand(device.Id);
 
         // Act
@@ -53,9 +38,8 @@ public class DeleteDeviceCommandHandlerTests
         // Assert
         result.Should().BeTrue();
 
-        // Cache invalidation expectations
-        _cacheMock.Verify(c => c.RemoveAsync($"device:{device.Id}"), Times.Once);
-        _cacheMock.Verify(c => c.RemoveByPatternAsync("devices:*"), Times.Once);
+        // Confirm device is gone
+        (await repo.GetByIdAsync(device.Id)).Should().BeNull();
     }
 
     [Fact]
@@ -63,7 +47,7 @@ public class DeleteDeviceCommandHandlerTests
     {
         // Arrange
         var repo = new InMemoryDeviceRepository();
-        var handler = new DeleteDeviceCommandHandler(repo, _cacheMock.Object);
+        var handler = new DeleteDeviceCommandHandler(repo);
 
         var command = new DeleteDeviceCommand(Guid.NewGuid());
 
@@ -72,9 +56,5 @@ public class DeleteDeviceCommandHandlerTests
 
         // Assert
         result.Should().BeFalse();
-
-        // Ensure NO cache invalidation occurs
-        _cacheMock.Verify(c => c.RemoveAsync(It.IsAny<string>()), Times.Never);
-        _cacheMock.Verify(c => c.RemoveByPatternAsync(It.IsAny<string>()), Times.Never);
     }
 }
