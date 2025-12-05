@@ -13,6 +13,7 @@ using DeviceService.Application.Devices.Models;
 using DeviceService.Application.Mappings;
 using Swashbuckle.AspNetCore.Annotations;
 using DeviceService.Application.Interfaces;
+using Microsoft.AspNetCore.RateLimiting;
 
 
 
@@ -52,6 +53,7 @@ namespace DeviceService.Api.Controllers
         /// <param name="ct">Cancellation token.</param>
         /// <returns>The newly created device, including its assigned ID.</returns>
         [HttpPost("register")]
+        [EnableRateLimiting("strict-post")]
         [SwaggerOperation(
         Summary = "Registers a new SmartHome device",
         Description = "Creates a device record and returns the created device with its ID.")]
@@ -129,6 +131,7 @@ namespace DeviceService.Api.Controllers
         /// The updated device if the operation succeeds; otherwise, a 404 Not Found response.
         /// </returns>
         [HttpPut("{id:guid}")]
+        [EnableRateLimiting("strict-post")]
         [ProducesResponseType(typeof(DeviceDto), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> UpdateDevice(Guid id, [FromBody] UpdateDeviceDto dto)
@@ -161,6 +164,7 @@ namespace DeviceService.Api.Controllers
         /// A 204 No Content response if the device was deleted; otherwise, a 404 Not Found.
         /// </returns>
         [HttpDelete("{id:guid}")]
+        [EnableRateLimiting("strict-post")]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> DeleteDevice(Guid id)

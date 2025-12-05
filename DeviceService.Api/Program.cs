@@ -26,6 +26,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using Microsoft.AspNetCore.RateLimiting;
 
 using OpenTelemetry;
 using OpenTelemetry.Metrics;
@@ -179,6 +180,38 @@ builder.Services.Configure<JwtOptions>(opts =>
 
 builder.Services.AddSingleton<JwtTokenService>();
 
+// =======================================================
+//  RATE LIMITER CONFIG 
+// =======================================================
+builder.Services.AddRateLimiter(options => 
+{
+    //Global limiter - applies to all endpoints/requests
+    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _=> new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 100,
+                Window = TimeSpan.FromMinutes(1),
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = 0
+            }));
+
+            //STRICT limiter for POST endpoints
+    options.AddPolicy("strict-Post", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _=> new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 10,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+            }
+        ));
+
+        //handle rejected requests
+        options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+ });
 
 // ========================================
 //  DEPENDENCY INJECTION (DOMAIN + APP)
