@@ -24,7 +24,7 @@ namespace DeviceService.Api.Controllers
     /// </summary>
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize]
+    //[Authorize]
     [Tags("Devices")]
     public class DevicesController : ControllerBase
     {

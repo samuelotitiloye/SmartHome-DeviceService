@@ -374,32 +374,53 @@ builder.Services.AddDefaultCorrelationId(options =>
 // =======================================================
 builder.Services.AddRateLimiter(options =>
 {
-    // global rate limit: 100 requests per minute per IP
+    // ---------------------------------------------------
+    //  GLOBAL RATE LIMITER — applies to all endpoints
+    // ---------------------------------------------------
     options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(httpContext =>
         RateLimitPartition.GetFixedWindowLimiter(
             partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
             factory: _ => new FixedWindowRateLimiterOptions
             {
-                Window = TimeSpan.FromMinutes(1),
                 PermitLimit = 100,
+                Window = TimeSpan.FromMinutes(1),
                 QueueLimit = 0,
                 QueueProcessingOrder = QueueProcessingOrder.OldestFirst
             }
         )
     );
 
-    // custom rejected response
+    // ---------------------------------------------------
+    //  STRICT POST LIMITER — applies to POST/PUT/DELETE 
+    //  Only when endpoints have [EnableRateLimiting("strict-post")]
+    // ---------------------------------------------------
+    options.AddPolicy("strict-post", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 10,              // Only 10 writes/min per IP
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0
+            }
+        )
+    );
+
+    // ---------------------------------------------------
+    //  CUSTOM REJECTION MESSAGE
+    // ---------------------------------------------------
     options.OnRejected = async (context, token) =>
     {
         context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
         context.HttpContext.Response.ContentType = "text/plain";
 
         await context.HttpContext.Response.WriteAsync(
-            "Too many requests. Please slow down",
+            "Too many requests. Please slow down.",
             token
         );
     };
 });
+
 
 // =======================================================
 //  RESPONSE CACHING
