@@ -1,7 +1,8 @@
 namespace DeviceService.Application.Common.Models
 {
     /// <summary>
-    /// Represents pagination settings including sanitized page number and page size values.
+    /// Represents pagination settings including validated and normalized
+    /// page number and page size values.
     /// </summary>
     public class PaginationParameters
     {
@@ -10,20 +11,20 @@ namespace DeviceService.Application.Common.Models
         private const int MaxPageSize = 100;
 
         /// <summary>
-        /// The current page number after validation and normalization.
+        /// The sanitized and normalized page number.
+        /// Guaranteed to be >= 1.
         /// </summary>
         public int PageNumber { get; }
 
         /// <summary>
-        /// The number of items per page after enforcing min/max limits.
+        /// The sanitized and normalized page size.
+        /// Guaranteed to be between 1 and 100.
         /// </summary>
         public int PageSize { get; }
 
         /// <summary>
-        /// Creates a new pagination configuration using safe defaults and validated values.
+        /// Creates a new pagination configuration using safe defaults.
         /// </summary>
-        /// <param name="pageNumber">Requested page number.</param>
-        /// <param name="pageSize">Requested page size.</param>
         public PaginationParameters(int? pageNumber, int? pageSize)
         {
             var page = pageNumber.GetValueOrDefault(DefaultPageNumber);
@@ -43,13 +44,24 @@ namespace DeviceService.Application.Common.Models
         }
 
         /// <summary>
-        /// The number of items to skip when executing a paginated query.
+        /// The number of items to skip when performing the paged query.
         /// </summary>
         public int Skip => (PageNumber - 1) * PageSize;
 
         /// <summary>
-        /// The number of items to return in the current page.
+        /// The number of items to take for this page.
         /// </summary>
         public int Take => PageSize;
+
+        /// <summary>
+        /// Clamps a value within the specified minimum and maximum range.
+        /// Provided for consistent pagination behavior across services.
+        /// </summary>
+        public static int Clamp(int value, int min, int max)
+        {
+            if (value < min) return min;
+            if (value > max) return max;
+            return value;
+        }
     }
 }
