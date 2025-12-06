@@ -7,23 +7,42 @@ using DeviceService.Domain.Entities;
 
 namespace DeviceService.Infrastructure.Repositories
 {
+    /// <summary>
+    /// Provides data access operations for <see cref="Device"/> entities,
+    /// including filtering, sorting, pagination, and basic CRUD functionality.
+    /// This repository centralizes EF Core interactions and ensures consistent patterns
+    /// across services in the SmartHome platform.
+    /// </summary>
     public class DeviceRepository : IDeviceRepository
     {
         private readonly DeviceDbContext _context;
 
+        /// <summary>
+        /// Initializes a new <see cref="DeviceRepository"/> using the given database context.
+        /// </summary>
         public DeviceRepository(DeviceDbContext context)
         {
             _context = context;
         }
 
-        // ============================================================
-        //   MAIN PAGINATED QUERY 
-        // ============================================================
+        // ======================================================================
+        //   PAGINATED QUERY
+        // ======================================================================
+
+        /// <summary>
+        /// Retrieves a paginated list of devices matching the provided filter and sorting rules.
+        /// Pagination is normalized to valid ranges and executed fully server-side.
+        /// </summary>
+        /// <param name="filter">Filtering and sorting criteria.</param>
+        /// <param name="pagination">Pagination parameters including page number and page size.</param>
+        /// <param name="cancellationToken">Token to cancel asynchronous operation.</param>
+        /// <returns>A <see cref="PaginatedResult{T}"/> containing matching devices.</returns>
         public async Task<PaginatedResult<Device>> GetDevicesAsync(
             DeviceFilter filter,
             PaginationParameters pagination,
             CancellationToken cancellationToken = default)
         {
+            filter.Normalize();
             var query = BuildFilteredQuery(filter);
 
             var totalCount = await query.CountAsync(cancellationToken);
@@ -31,7 +50,6 @@ namespace DeviceService.Infrastructure.Repositories
             if (totalCount == 0)
                 return PaginatedResult<Device>.Empty(pagination);
 
-            // Normalize page number
             var maxPage = (int)Math.Ceiling(totalCount / (double)pagination.PageSize);
             var currentPage = Math.Clamp(pagination.PageNumber, 1, maxPage);
 
@@ -51,19 +69,31 @@ namespace DeviceService.Infrastructure.Repositories
                 totalCount);
         }
 
-        // ============================================================
-        //   Count Endpoint Support
-        // ============================================================
+        // ======================================================================
+        //   COUNT QUERY
+        // ======================================================================
+
+        /// <summary>
+        /// Returns the total number of devices matching the provided filter.
+        /// The count is always performed server-side without loading entities.
+        /// </summary>
         public Task<int> GetDevicesCountAsync(
             DeviceFilter filter,
             CancellationToken cancellationToken = default)
         {
+            filter.Normalize();
             return BuildFilteredQuery(filter).CountAsync(cancellationToken);
         }
 
-        // ============================================================
+        // ======================================================================
         //   QUERY BUILDING HELPERS
-        // ============================================================
+        // ======================================================================
+
+        /// <summary>
+        /// Builds an EF Core query containing all filtering rules based on <see cref="DeviceFilter"/>.
+        /// This method does not execute the query; it prepares an <see cref="IQueryable{T}"/>
+        /// that can later be counted, paginated, or executed.
+        /// </summary>
         private IQueryable<Device> BuildFilteredQuery(DeviceFilter filter)
         {
             IQueryable<Device> query = _context.Devices.AsNoTracking();
@@ -93,13 +123,16 @@ namespace DeviceService.Infrastructure.Repositories
 
             if (filter.MinThresholdWatts.HasValue)
             {
-                query = query.Where(d =>
-                    d.ThresholdWatts >= filter.MinThresholdWatts.Value);
+                query = query.Where(d => d.ThresholdWatts >= filter.MinThresholdWatts.Value);
             }
 
             return query;
         }
 
+        /// <summary>
+        /// Applies a consistent sorting rule to an existing filtered device query.
+        /// Sorting is performed strictly server-side using EF Core translation.
+        /// </summary>
         private static IQueryable<Device> ApplySorting(
             IQueryable<Device> query,
             DeviceFilter filter)
@@ -125,26 +158,39 @@ namespace DeviceService.Infrastructure.Repositories
             };
         }
 
-        // ============================================================
-        //   BASIC CRUD
-        // ============================================================
+        // ======================================================================
+        //   CRUD OPERATIONS
+        // ======================================================================
+
+        /// <summary>
+        /// Retrieves a device by its identifier, or null if not found.
+        /// </summary>
         public Task<Device?> GetByIdAsync(Guid id)
         {
             return _context.Devices.FirstOrDefaultAsync(d => d.Id == id);
         }
 
+        /// <summary>
+        /// Adds a new device to the database and saves changes.
+        /// </summary>
         public async Task AddAsync(Device device)
         {
             _context.Devices.Add(device);
             await _context.SaveChangesAsync();
         }
 
+        /// <summary>
+        /// Updates an existing device entity and persists the change to the database.
+        /// </summary>
         public async Task UpdateAsync(Device device)
         {
             _context.Devices.Update(device);
             await _context.SaveChangesAsync();
         }
 
+        /// <summary>
+        /// Deletes a device by its identifier if it exists.
+        /// </summary>
         public async Task DeleteAsync(Guid id)
         {
             var device = await _context.Devices.FindAsync(id);
