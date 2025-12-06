@@ -390,10 +390,10 @@ builder.Services.AddRateLimiter(options =>
         )
     );
 
-    // ---------------------------------------------------
+    // -------------------------------------------------------------
     //  STRICT POST LIMITER — applies to POST/PUT/DELETE 
     //  Only when endpoints have [EnableRateLimiting("strict-post")]
-    // ---------------------------------------------------
+    // --------------------------------------------------------------
     options.AddPolicy("strict-post", httpContext =>
         RateLimitPartition.GetFixedWindowLimiter(
             partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",

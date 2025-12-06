@@ -24,54 +24,21 @@ namespace DeviceService.Infrastructure.Repositories
             PaginationParameters pagination,
             CancellationToken cancellationToken = default)
         {
-            IQueryable<Device> query = _context.Devices.AsNoTracking();
+            var query = BuildFilteredQuery(filter);
 
-            // ---------------- Filters ----------------
-            if (!string.IsNullOrWhiteSpace(filter.NameContains))
-            {
-                var term = filter.NameContains.Trim();
-                query = query.Where(d => d.Name.Contains(term));
-            }
-
-            if (!string.IsNullOrWhiteSpace(filter.Location))
-            {
-                var location = filter.Location.Trim();
-                query = query.Where(d => d.Location == location);
-            }
-
-            if (!string.IsNullOrWhiteSpace(filter.Type))
-            {
-                var type = filter.Type.Trim();
-                query = query.Where(d => d.Type == type);
-            }
-
-            if (filter.IsOnline.HasValue)
-            {
-                query = query.Where(d => d.IsOnline == filter.IsOnline.Value);
-            }
-
-            if (filter.MinThresholdWatts.HasValue)
-            {
-                query = query.Where(d => d.ThresholdWatts >= filter.MinThresholdWatts.Value);
-            }
-
-            // ---------------- Total Count ----------------
             var totalCount = await query.CountAsync(cancellationToken);
 
             if (totalCount == 0)
                 return PaginatedResult<Device>.Empty(pagination);
 
-            var totalPages = (int)Math.Ceiling(totalCount / (double)pagination.PageSize);
-            var currentPage = pagination.PageNumber > totalPages
-                ? totalPages
-                : pagination.PageNumber;
+            // Normalize page number
+            var maxPage = (int)Math.Ceiling(totalCount / (double)pagination.PageSize);
+            var currentPage = Math.Clamp(pagination.PageNumber, 1, maxPage);
+
+            query = ApplySorting(query, filter);
 
             var skip = (currentPage - 1) * pagination.PageSize;
 
-            // ---------------- Sorting ----------------
-            query = ApplySorting(query, filter);
-
-            // ---------------- Page Query ----------------
             var items = await query
                 .Skip(skip)
                 .Take(pagination.PageSize)
@@ -87,9 +54,17 @@ namespace DeviceService.Infrastructure.Repositories
         // ============================================================
         //   Count Endpoint Support
         // ============================================================
-        public async Task<int> GetDevicesCountAsync(
+        public Task<int> GetDevicesCountAsync(
             DeviceFilter filter,
             CancellationToken cancellationToken = default)
+        {
+            return BuildFilteredQuery(filter).CountAsync(cancellationToken);
+        }
+
+        // ============================================================
+        //   QUERY BUILDING HELPERS
+        // ============================================================
+        private IQueryable<Device> BuildFilteredQuery(DeviceFilter filter)
         {
             IQueryable<Device> query = _context.Devices.AsNoTracking();
 
@@ -118,15 +93,13 @@ namespace DeviceService.Infrastructure.Repositories
 
             if (filter.MinThresholdWatts.HasValue)
             {
-                query = query.Where(d => d.ThresholdWatts >= filter.MinThresholdWatts.Value);
+                query = query.Where(d =>
+                    d.ThresholdWatts >= filter.MinThresholdWatts.Value);
             }
 
-            return await query.CountAsync(cancellationToken);
+            return query;
         }
 
-        // ============================================================
-        //   Sorting Logic
-        // ============================================================
         private static IQueryable<Device> ApplySorting(
             IQueryable<Device> query,
             DeviceFilter filter)
@@ -155,9 +128,9 @@ namespace DeviceService.Infrastructure.Repositories
         // ============================================================
         //   BASIC CRUD
         // ============================================================
-        public async Task<Device?> GetByIdAsync(Guid id)
+        public Task<Device?> GetByIdAsync(Guid id)
         {
-            return await _context.Devices.FirstOrDefaultAsync(d => d.Id == id);
+            return _context.Devices.FirstOrDefaultAsync(d => d.Id == id);
         }
 
         public async Task AddAsync(Device device)
@@ -175,7 +148,8 @@ namespace DeviceService.Infrastructure.Repositories
         public async Task DeleteAsync(Guid id)
         {
             var device = await _context.Devices.FindAsync(id);
-            if (device is null) return;
+            if (device is null)
+                return;
 
             _context.Devices.Remove(device);
             await _context.SaveChangesAsync();
