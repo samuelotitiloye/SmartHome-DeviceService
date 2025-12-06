@@ -4,6 +4,7 @@ public class CorrelationMiddleware
 {
     private const string CorrelationHeaderName = "X-Correlation-ID";
     private const string TraceIdHeaderName = "X-Trace-ID";
+
     private readonly RequestDelegate _next;
 
     public CorrelationMiddleware(RequestDelegate next)
@@ -13,34 +14,41 @@ public class CorrelationMiddleware
 
     public async Task InvokeAsync(HttpContext context)
     {
-        string correlationId = context.Request.Headers[CorrelationHeaderName]
-            .FirstOrDefault();
-
         var activity = Activity.Current;
+        var correlationId = context.Request.Headers[CorrelationHeaderName].FirstOrDefault();
 
-        // Use TraceId if no correlation ID supplied
-        if (!string.IsNullOrWhiteSpace(correlationId) && activity != null) 
+        // If no correlation ID, derive from trace or generate a new one
+        if (string.IsNullOrWhiteSpace(correlationId))
         {
-            correlationId = activity.TraceId.ToString();
-
-            // store for logging
-            context.Items[CorrelationHeaderName] = correlationId;
-
-            // Add as span tag
-            activity?.SetTag("correlation.id", correlationId);
-
-            context.Response.OnStarting(() => 
+            if (activity is not null)
             {
-                if (!context.Response.Headers.ContainsKey(CorrelationHeaderName))
-                    context.Response.Headers.Add(CorrelationHeaderName, correlationId);
-
-                if (activity != null && !context.Response.Headers.ContainsKey(TraceIdHeaderName))
-                    context.Response.Headers.Add(TraceIdHeaderName, activity.TraceId.ToString());
-
-                return Task.CompletedTask;
-            });
-
-            await _next(context);
+                correlationId = activity.TraceId.ToString();
+            }
+            else
+            {
+                correlationId = Guid.NewGuid().ToString();
+            }
         }
+
+        // Store for logging
+        context.Items[CorrelationHeaderName] = correlationId;
+
+        // Add as span tag
+        activity?.SetTag("correlation.id", correlationId);
+
+        context.Response.OnStarting(() =>
+        {
+            // Use indexer or Append rather than Add (ASP0019)
+            context.Response.Headers[CorrelationHeaderName] = correlationId;
+
+            if (activity is not null)
+            {
+                context.Response.Headers[TraceIdHeaderName] = activity.TraceId.ToString();
+            }
+
+            return Task.CompletedTask;
+        });
+
+        await _next(context);
     }
 }

@@ -9,7 +9,6 @@ using DeviceService.Api.Middleware;
 using DeviceService.Api.Extensions;
 using DeviceService.Api.Settings;
 using DeviceService.Application;
-using DeviceService.Application.Devices.Commands.UpdateDevice;
 using DeviceService.Application.Interfaces;
 using DeviceService.Application.Services;
 using DeviceService.Infrastructure.Persistence;
@@ -39,7 +38,6 @@ using HealthChecks.NpgSql;
 
 using StackExchange.Redis;
 
-using DeviceService.Application;
 using DeviceService.Application.Devices.Caching;
 using DeviceService.Application.Devices.Dto;
 
@@ -326,7 +324,7 @@ builder.Services.Decorate<
     ListDevicesCachedQueryHandler>();
 
 builder.Services.Decorate<
-    IRequestHandler<UpdateDeviceCommand, DeviceDto>,
+    IRequestHandler<UpdateDeviceCommand, DeviceDto?>,
     UpdateDeviceCacheInvalidationHandler>();
 
 builder.Services.Decorate<

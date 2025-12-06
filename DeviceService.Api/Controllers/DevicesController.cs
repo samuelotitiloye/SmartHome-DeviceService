@@ -16,7 +16,6 @@ using DeviceService.Application.Interfaces;
 using Microsoft.AspNetCore.RateLimiting;
 
 
-
 namespace DeviceService.Api.Controllers
 {   
     /// <summary>
@@ -65,7 +64,7 @@ namespace DeviceService.Api.Controllers
         }
 
 
-        /// ==============================================================
+        // ==============================================================
         //  GET DEVICE BY ID
         // ==============================================================
         /// <summary>
@@ -87,7 +86,7 @@ namespace DeviceService.Api.Controllers
         }
 
 
-        /// ==============================================================
+        // ==============================================================
         //  GET DEVICES (PAGINATED)
         // ==============================================================
         /// <summary>
@@ -117,7 +116,6 @@ namespace DeviceService.Api.Controllers
 
             return Ok(result);
         }
-
 
         // ==============================================================
         //  UPDATE DEVICE
@@ -151,7 +149,6 @@ namespace DeviceService.Api.Controllers
 
             return Ok(result);
         }
-
 
         // ==============================================================
         //  DELETE DEVICE
