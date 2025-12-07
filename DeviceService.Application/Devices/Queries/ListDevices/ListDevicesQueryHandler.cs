@@ -28,11 +28,11 @@ namespace DeviceService.Application.Devices.Queries.ListDevices
             var dtoItems = result.Items.Select(d => d.ToDto()).ToList();
 
             return new PaginatedResult<DeviceDto>(
-                dtoItems,
-                result.TotalCount,
-                result.PageNumber,
-                result.PageSize
-            );
+            items: dtoItems,
+            pageNumber: result.PageNumber,
+            pageSize: result.PageSize,
+            totalCount: result.TotalCount
+        );
         }
     }
 }
