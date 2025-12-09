@@ -151,8 +151,13 @@ Both services will use the same Clean Architecture, observability stack, and inf
 
 
 
+
+
+
 Author:
 
-Samuel Titiloye
-Software Engineer — Cloud, DevOps, Platform Engineering
-SmartHome Platform Project
+`Samuel Titiloye`
+
+`Software Engineer — Cloud, DevOps, Platform Engineering`
+
+`SmartHome Platform Project`
