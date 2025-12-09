@@ -131,7 +131,7 @@ The test suite includes:
 - Error-handling and validation tests
 All tests run in CI via GitHub Actions.
 
-Observability
+Observability: 
 The service ships with full observability using OpenTelemetry.
 
 Prometheus — Metrics
@@ -164,7 +164,56 @@ Provides:
 - Handler execution spans
 - Database + Redis dependency spans
 
-Performance Notes
+
+Example API Requests (cURL):
+ - Here are sample cURL commands demonstrating the core device workflows.
+Register a Device
+ ```
+ curl -X POST http://localhost:8080/api/devices/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Kitchen Sensor",
+    "type": "sensor",
+    "location": "Kitchen",
+    "isOnline": true,
+    "thresholdWatts": 50,
+    "serialNumber": "ABC12345"
+  }'
+```
+Get Device by ID
+
+`curl http://localhost:8080/api/devices/<deviceId>`
+
+Update A Device
+```
+curl -X PUT http://localhost:8080/api/devices/<deviceId> \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Kitchen Sensor v2",
+    "type": "sensor",
+    "location": "Kitchen",
+    "isOnline": false,
+    "thresholdWatts": 45,
+    "serialNumber": "ABC12345"
+  }'
+```
+
+List Devices (with pagination + filters)
+`curl "http://localhost:8080/api/devices?page=1&pageSize=10&nameContains=sensor&location=Kitchen"`
+
+Delete A Device
+`curl -X DELETE http://localhost:8080/api/devices/<deviceId>`
+
+Health Check
+`curl http://localhost:8080/health`
+
+Prometheus Metrics
+`curl http://localhost:8080/metrics`
+
+Redis Connectivity Test (via container)
+`docker exec -it redis redis-cli ping`
+
+Performance Notes:
 - Redis caching significantly reduces load on GET /api/devices/{id}.
 - Pagination protects the DB by limiting large reads.
 - Global rate limiting prevents noisy clients from overwhelming the API.
@@ -173,13 +222,11 @@ Performance Notes
 - Bulk operations optimized via batch inserts/updates where applicable.
 
 Future Expansion:
-
 EnergyDataService (next microservice)
 - Receives device energy consumption events
 - Computes real-time usage metrics
 - Integrates with DeviceService through device IDs
 - Long-term: energy anomaly detection
-
 
 AlertService
 - Monitors offline/high-wattage devices
@@ -189,8 +236,40 @@ AlertService
 Both services will use the same Clean Architecture, observability stack, and infrastructure patterns.
 
 
+For Recruiters & Interviewers
+This repository showcases ability to build production-grade backend services with modern engineering practices:
 
+Key Skills Demonstrated:
+- Clean Architecture with strict layering
+- CQRS + MediatR for maintainability and separation of concerns
+- Redis caching for performance optimization
+- Resilient API design with rate limiting & response caching
+- Comprehensive OpenTelemetry instrumentation (metrics + traces)
+- Containerized local environment (PostgreSQL, Redis, Prometheus, Grafana, Jaeger)
+- Full unit test suite for business logic and handlers
+- Developer-friendly documentation and examples
 
+Why This Project Stands Out:
+This service mirrors patterns used in cloud-native companies and platform engineering teams:
+- Observable
+- Testable
+- Scalable
+- Containerized
+- Portable
+
+It also demonstrates the ability to:
+- Work iteratively using sprint-based development
+- Produce clear documentation
+- Write clean, maintainable C# and .NET 8 code
+- Think like a backend engineer and DevOps engineer
+
+What to Look At:
+`/DeviceService.Api` for minimal APIs, rate limiting, and OTel setup
+`/DeviceService.Application` for commands, queries, handlers, and validations
+`/DeviceService.Infrastructure` for EF Core, caching, and repository patterns
+`/DeviceService.Tests` for modular unit test design
+`docker-compose.yml` for local cloud-style environment
+Grafana dashboards + Prometheus metrics via the observability stack
 
 
 
