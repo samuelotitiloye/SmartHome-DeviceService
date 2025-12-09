@@ -40,6 +40,48 @@ Client
   → Response returned
   → OpenTelemetry sends metrics + traces
 
+Detailed Request Flow:
+ - Minimal API → MediatR → Handler → DB/Cache
+  ```flowchart LR
+    A[HTTP Endpoint<br/> /api/devices/register] --> B[Request DTO]
+    B --> C[MediatR Command]
+    C --> D[Handler]
+    D --> E[Repository]
+    E --> F[(PostgreSQL DB)]
+    D --> G[(Redis Cache)]
+```
+- Full Behavior Sequence (including Redis caching)
+```
+sequenceDiagram
+    autonumber
+    participant C as Client
+    participant API as DeviceService.Api
+    participant M as MediatR Pipeline
+    participant H as Handler
+    participant R as Repository
+    participant DB as PostgreSQL
+    participant RED as Redis Cache
+
+    C->>API: HTTP Request (e.g., GET /devices/{id})
+    API->>M: Create Query/Command
+    M->>H: Run Validators · Logging · Behaviors
+    alt Is Cached?
+        H->>RED: Check Cache
+        RED-->>H: Cached Item Found
+        H-->>API: Return Cached Response
+        API-->>C: 200 OK
+    else Not Cached
+        H->>R: Query Database
+        R->>DB: SELECT/INSERT/UPDATE
+        DB-->>R: Result
+        R-->>H: Mapped DTO
+        H->>RED: Write to Cache
+        H-->>API: Handler Result
+        API-->>C: 200 OK (from DB)
+    end
+```
+
+
 Docker Instructions:
 Start the entire stack
 `docker compose up --build`
@@ -113,7 +155,7 @@ Includes custom panels:
 - Error rate
 - Device registration activity
 - Database connection graphs
-- Jaeger — Distributed Tracing
+- Jaeger: Distributed Tracing
 
 `http://localhost:16686`
 
