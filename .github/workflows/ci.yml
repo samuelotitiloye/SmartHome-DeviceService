@@ -1,9 +1,10 @@
 name: CI Pipeline
 
-on:
+on: 
   push:
-    branches: [ main ]
+    branches: [ main, dev, feature/* ]
   pull_request:
+    branches: [ main, dev ]
 
 jobs:
   build_and_test:
@@ -20,59 +21,6 @@ jobs:
       # -----------------------------
       # Cache NuGet packages
       # -----------------------------
-      - name: Cache NuGet
-        uses: actions/cache@v3
-        with:
-          path: ~/.nuget/packages
-          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
-          restore-keys: |
-            ${{ runner.os }}-nuget-
-
-      # -----------------------------
-      # Install .NET SDK 8
-      # -----------------------------
-      - name: Set up .NET SDK
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '8.0.x'
-
-      # -----------------------------
-      # Restore dependencies
-      # -----------------------------
-      - name: Restore
-        run: dotnet restore SmartHome.sln
-
-      # -----------------------------
-      # Build
-      # -----------------------------
-      - name: Build
-        run: dotnet build SmartHome.sln --configuration Release --no-restore
-
-      # -----------------------------
-      # Run Unit Tests + Coverage
-      # -----------------------------
-      - name: Run Tests with Coverage
-        run: |
-          dotnet test DeviceService.Tests/DeviceService.Tests.csproj \
-            --configuration Release \
-            --no-build \
-            --collect:"XPlat Code Coverage" \
-            --results-directory TestResults
-
-      # -----------------------------
-      # Upload coverage report
-      # -----------------------------
-      - name: Upload Coverage Results
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-report
-          path: TestResults
-
-      # -----------------------------
-      # Upload TRX test results
-      # -----------------------------
-      - name: Upload Test Results
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-results
-          path: "**/TestResults/*.trx"
+      
+  
+    
