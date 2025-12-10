@@ -42,7 +42,7 @@ jobs:
     # -----------------------------
 
     - name: Restore
-      run: dotnet restore SamrtHome.sln
+      run: dotnet restore SmartHome.sln
 
     # -----------------------------
     # Build
