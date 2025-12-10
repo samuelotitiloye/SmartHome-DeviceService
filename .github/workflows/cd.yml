@@ -16,7 +16,7 @@ jobs:
     # Checkout the repository
     # ----------------------------------- 
     - name: Checkout repository
-      uses: actioins/checkout@v4
+      uses: actions/checkout@v4
 
     # ------------------------------------
     # Log in to GitHub Container Registry
