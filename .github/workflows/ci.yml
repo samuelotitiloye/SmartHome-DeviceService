@@ -1,6 +1,6 @@
 name: CI Pipeline
 
-on: 
+on:
   push:
     branches: [ main, dev, feature/* ]
   pull_request:
@@ -12,15 +12,75 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # -----------------------------
-      # Checkout repository
-      # -----------------------------
-      - name: Checkout repository
-        uses: actions/checkout@v4
+    # -----------------------------
+    # Checkout repository
+    # -----------------------------
+    - name: Checkout repository
+      uses: actions/checkout@v4
 
-      # -----------------------------
-      # Cache NuGet packages
-      # -----------------------------
-      
-  
-    
+    # -----------------------------
+    # Cache NuGet packages
+    # -----------------------------
+    - name: Cache NuGet
+      uses: actions/cache@3
+      with:
+        path: ~/.nuget/packages
+        key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj' )}}
+        restore-keys: |
+          ${{ runner.os }}-nuget-
+
+    # -----------------------------
+    # Install .NET SDK 8
+    # -----------------------------
+    - name: Set up .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
+
+    # -----------------------------
+    # Restore dependencies
+    # -----------------------------
+
+    - name: Restore
+      run: dotnet restore SamrtHome.sln
+
+    # -----------------------------
+    # Build
+    # -----------------------------
+    - name: Build
+      run: dotnet build SmartHome.sln --configuration Release --no-restore
+
+    # -----------------------------
+    # Run Unit Tests + Coverage
+    # -----------------------------
+    - name: Run Tests with Coverage
+      run: |
+        dotnet test DeviceService.Tests/DeviceService.Tests.csproj \
+          --configuration Release \
+          --no-build \
+          --collect:"XPlat Code Coverage" \
+          --results-directory TestResults
+
+    # -----------------------------
+    # Upload coverage report
+    # -----------------------------
+    - name: Upload Coverage Results
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage-report
+        path: TestResults
+
+    # -----------------------------
+    # Upload TRX test results
+    # -----------------------------
+    - name: Upload Test Results
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-results
+        path: "**/TestResults/*.trx"
+
+    # -----------------------------
+    # Validate Dockerfile builds
+    # -----------------------------
+    - name: Validate Docker build
+      run: docker build . -f DevoceService.Api/Dockerfile
