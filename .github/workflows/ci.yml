@@ -83,4 +83,4 @@ jobs:
     # Validate Dockerfile builds
     # -----------------------------
     - name: Validate Docker build
-      run: docker build . -f DevoceService.Api/Dockerfile
+      run: docker build . -f DeviceService.Api/Dockerfile
