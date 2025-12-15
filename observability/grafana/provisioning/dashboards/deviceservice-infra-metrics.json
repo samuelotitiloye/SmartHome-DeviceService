@@ -51,7 +51,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "((sum(rate(http_server_request_duration_seconds_count{http_response_status_code=~\"4..|5..\"}[2m])) OR on() vector(0)) / clamp_min(sum(rate(http_server_request_duration_seconds_count[2m])), 0.000001) * 100)"
+          "expr": "((sum(rate(http_server_request_duration_seconds_bucket{http_response_status_code=~\"4..|5..\"}[1m]))/sum(rate(http_server_request_duration_seconds_bucket[1m]))) * 100 or vector(0))"
         }
       ],
       "fieldConfig": {
