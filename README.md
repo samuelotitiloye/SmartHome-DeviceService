@@ -131,38 +131,36 @@ The test suite includes:
 - Error-handling and validation tests
 All tests run in CI via GitHub Actions.
 
-Observability: 
-The service ships with full observability using OpenTelemetry.
+## Observability
 
-Prometheus — Metrics
+DeviceService ships with full observability using OpenTelemetry, providing metrics, dashboards, and distributed tracing out of the box.
 
-`http://localhost:9090`
-- Scrapes metrics such as:
-- Request rate
-- API latency
-- GC metrics
+### Prometheus — Metrics
+http://localhost:9090
+
+Scrapes and stores service metrics including:
+- Request rate (RPS)
+- API latency (p90 / p99)
 - Error counts
+- Runtime & GC metrics
 
-Grafana — Dashboards
-
-`http://localhost:3000`
-
+### Grafana — Dashboards
+http://localhost:3000  
 Login: `admin / admin`
 
-Includes custom panels:
+Includes custom dashboards for:
 - API throughput
-- Latency (p50/p90/p99)
-- Error rate
-- Device registration activity
-- Database connection graphs
-- Jaeger: Distributed Tracing
+- Latency (p90 / p99)
+- Error rate (handles zero-error traffic correctly)
+- Health & readiness signals
 
-`http://localhost:16686`
+### Jaeger — Distributed Tracing
+http://localhost:16686
 
 Provides:
-- End-to-end trace visualizations
-- Handler execution spans
-- Database + Redis dependency spans
+- End-to-end request tracing
+- MediatR handler execution spans
+- Database and Redis dependency spans
 
 
 Example API Requests (cURL):
